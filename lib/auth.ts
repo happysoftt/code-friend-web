@@ -101,31 +101,33 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  callbacks: {
+callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // ถ้ามีการล็อกอินใหม่ ให้บันทึก ID ลง Token
-      if (user) {
-        token.id = user.id;
+      // ถ้ามีการอัปเดต Session (เช่น แก้ไขโปรไฟล์)
+      if (trigger === "update" && session?.name) {
+        token.name = session.name;
       }
-      
-      // ✅ เพิ่ม: ดึงข้อมูล Role ล่าสุดจาก Database เสมอ (กันเหนียว)
+
+      // ✅ จุดที่แก้: ให้ดึง Role จากฐานข้อมูลเสมอ (โดยใช้อีเมลใน Token)
       if (token.email) {
-         const dbUser = await prisma.user.findUnique({
-            where: { email: token.email },
-            include: { role: true }
-         });
-         if (dbUser) {
-            token.role = dbUser.role?.name || "USER";
-            token.id = dbUser.id;
-         }
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          include: { role: true }, // ดึงตาราง Role มาด้วย
+        });
+
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role?.name || "USER"; // อัปเดตยศใน Token ทันที
+        }
       }
+
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
-        // ✅ บังคับให้ Session ใช้ข้อมูลล่าสุดจาก Token/Database
         session.user.id = token.id as string;
-        session.user.role = token.role as string || "USER"; // ถ้าไม่มีให้เป็น USER ไปก่อน
+        session.user.role = token.role as string; // ส่งยศไปให้หน้าเว็บใช้
       }
       return session;
     },
