@@ -7,11 +7,10 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { saveFile } from "@/lib/storage";
-import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcryptjs";
 import { sendOrderApprovedEmail } from "@/lib/mail";
 import { Resend } from "resend";
-
+import { v4 as uuidv4 } from "uuid";
 const resend = new Resend(process.env.RESEND_API_KEY);
 // ---------------------------------------------------------
 // 1. AUTH & USER MANAGEMENT
