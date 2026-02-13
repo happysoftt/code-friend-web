@@ -5,32 +5,31 @@ import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// ✅ สร้าง Custom Adapter เพื่อดักการสร้าง User ใหม่
+// ✅ Custom Adapter to handle user creation with default Role and Profile
 const CustomPrismaAdapter = (p: typeof prisma) => {
   const adapter = PrismaAdapter(p);
 
   return {
     ...adapter,
-    // Override ฟังก์ชัน createUser
     createUser: async (data: any) => {
-      // 1. ค้นหา Role "USER" ในระบบ
+      // 1. Find the "USER" role
       let userRole = await p.role.findUnique({ 
         where: { name: "USER" } 
       });
 
-      // 2. ถ้ายังไม่มี Role นี้ ให้สร้างใหม่เลย (กัน Error)
+      // 2. If the role doesn't exist, create it to prevent errors
       if (!userRole) {
         userRole = await p.role.create({
           data: { name: "USER", description: "General Member" },
         });
       }
 
-      // 3. สร้าง User พร้อมยัด roleId และ Profile เริ่มต้น
+      // 3. Create the user with the assigned roleId and a default profile
       return p.user.create({
         data: {
           ...data,
-          roleId: userRole.id, // ✅ ใส่ Role ตรงนี้
-          profile: {           // ✅ แถมสร้าง Profile ให้ด้วยเลย
+          roleId: userRole.id, // ✅ Assign Role ID
+          profile: {           // ✅ Create default Profile
             create: {
               bio: "สมาชิกใหม่จาก Google",
               stack: "Learner",
@@ -43,7 +42,7 @@ const CustomPrismaAdapter = (p: typeof prisma) => {
 };
 
 export const authOptions: NextAuthOptions = {
-  adapter: CustomPrismaAdapter(prisma), // ✅ เปลี่ยนมาใช้ตัวที่เราโมดิฟาย
+  adapter: CustomPrismaAdapter(prisma) as any, // ✅ Use the custom adapter (cast as any to avoid type strictness issues)
   session: {
     strategy: "jwt",
   },
@@ -97,37 +96,54 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           role: user.role?.name || "USER",
           roleId: user.roleId,
-        }as any;
+        } as any;
       },
     }),
   ],
-callbacks: {
+  callbacks: {
+    async signIn({ user }) {
+      // Check if user is active before allowing sign in
+      if (user.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user.email },
+        });
+        if (dbUser && !dbUser.isActive) {
+          return false; 
+        }
+      }
+      return true;
+    },
     async jwt({ token, user, trigger, session }) {
-      // ถ้ามีการอัปเดต Session (เช่น แก้ไขโปรไฟล์)
+      if (user) {
+        token.id = user.id;
+        // @ts-ignore
+        token.role = user.role || "USER";
+      }
+
+      // If role is missing in token (common on first Google login), fetch from DB
+      if (!token.role && token.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          include: { role: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role?.name || "USER";
+          token.id = dbUser.id;
+        }
+      }
+
       if (trigger === "update" && session?.name) {
         token.name = session.name;
       }
 
-      // ✅ จุดที่แก้: ให้ดึง Role จากฐานข้อมูลเสมอ (โดยใช้อีเมลใน Token)
-      if (token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          include: { role: true }, // ดึงตาราง Role มาด้วย
-        });
-
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role?.name || "USER"; // อัปเดตยศใน Token ทันที
-        }
-      }
-
       return token;
     },
-
     async session({ session, token }) {
       if (session.user) {
+        // @ts-ignore
         session.user.id = token.id as string;
-        session.user.role = token.role as string; // ส่งยศไปให้หน้าเว็บใช้
+        // @ts-ignore
+        session.user.role = token.role as string;
       }
       return session;
     },
