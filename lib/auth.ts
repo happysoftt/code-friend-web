@@ -65,47 +65,38 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      // 1. ถ้ามีการแก้ไข Profile (รองรับการ update)
-      if (trigger === "update" && session?.name) {
-        token.name = session.name;
-      }
-
-      // 2. ถ้ามี User ล็อกอินเข้ามาครั้งแรก (เช่น Google Login)
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
       }
+      
+      // ดึงข้อมูล Role จาก Database มาใส่ใน Token (บัตรผ่านชั้นใน)
+      const dbUser = await prisma.user.findUnique({
+        where: { email: token.email! },
+        include: { role: true },
+      });
 
-      // 3. 🔥 จุดสำคัญ: ไปดึงข้อมูลล่าสุดจาก Database มาใส่ใน Token เสมอ
-      if (token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          include: { role: true }, // ดึงข้อมูล Role มาด้วย
-        });
-
-        if (dbUser) {
-          token.id = dbUser.id;
-          // ดึงชื่อ Role (เช่น ADMIN) มาใส่ในบัตรผ่าน
-          // @ts-ignore
-          token.role = dbUser.role?.name || "USER";
-        }
-
-        // 🛡️ ไม้ตาย: ถ้าเป็นอีเมลของคุณ บังคับให้เป็น ADMIN ใน Token ทันที
-        if (token.email === "klolo20221@gmail.com") {
-          token.role = "ADMIN";
-        }
+      if (dbUser) {
+        token.id = dbUser.id;
+        // @ts-ignore
+        token.role = dbUser.role?.name || "USER";
       }
 
+      // 🔥 กันเหนียว: บังคับอีเมลคุณให้เป็น ADMIN ทันทีในระดับ Token
+      if (token.email === "klolo20221@gmail.com") {
+        token.role = "ADMIN";
+      }
+      
       return token;
     },
 
     async session({ session, token }) {
       if (session.user) {
-        // ส่งค่ายศ (Role) จาก Token ไปให้หน้า Layout ใช้งานได้
+        // 🔥 สำคัญที่สุด: ก๊อปปี้ยศจาก Token มาใส่ใน Session (บัตรผ่านชั้นนอก)
         // @ts-ignore
         session.user.id = token.id;
         // @ts-ignore
-        session.user.role = token.role;
+        session.user.role = token.role; // บรรทัดนี้จะทำให้หน้า Layout เห็นคำว่า "ADMIN"
       }
       return session;
     },
