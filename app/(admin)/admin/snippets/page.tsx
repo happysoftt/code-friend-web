@@ -113,7 +113,7 @@ export default async function AdminSnippetPage({ searchParams }: { searchParams:
                         {item.language || "text"}
                      </div>
                      <pre className="text-xs text-slate-400 font-mono line-clamp-4 overflow-hidden leading-relaxed opacity-80">
-                         {item.code || "// No code content available..."}
+                         {item.content || "// No code content available..."}
                      </pre>
                      <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-950 to-transparent"></div>
                  </div>
