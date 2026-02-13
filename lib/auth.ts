@@ -102,49 +102,30 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      if (user.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        });
-        if (dbUser && !dbUser.isActive) {
-          return false;
-        }
-      }
-      return true;
-    },
     async jwt({ token, user, trigger, session }) {
+      // ถ้ามีการล็อกอินใหม่ ให้บันทึก ID ลง Token
       if (user) {
         token.id = user.id;
-        // @ts-ignore
-        token.role = user.role || "USER";
       }
-
-      // กรณี Google Login ครั้งแรก role อาจจะยังไม่มาใน object user
-      // ดึงจาก DB ใหม่อีกรอบเพื่อความชัวร์
-      if (!token.role && token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          include: { role: true },
-        });
-        if (dbUser?.role) {
-          token.role = dbUser.role.name;
-          token.id = dbUser.id;
-        }
+      
+      // ✅ เพิ่ม: ดึงข้อมูล Role ล่าสุดจาก Database เสมอ (กันเหนียว)
+      if (token.email) {
+         const dbUser = await prisma.user.findUnique({
+            where: { email: token.email },
+            include: { role: true }
+         });
+         if (dbUser) {
+            token.role = dbUser.role?.name || "USER";
+            token.id = dbUser.id;
+         }
       }
-
-      if (trigger === "update" && session?.name) {
-        token.name = session.name;
-      }
-
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        // @ts-ignore
+        // ✅ บังคับให้ Session ใช้ข้อมูลล่าสุดจาก Token/Database
         session.user.id = token.id as string;
-        // @ts-ignore
-        session.user.role = token.role as string;
+        session.user.role = token.role as string || "USER"; // ถ้าไม่มีให้เป็น USER ไปก่อน
       }
       return session;
     },
