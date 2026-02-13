@@ -1,24 +1,28 @@
 import { prisma } from "@/lib/prisma";
-import { updateCategory } from "@/lib/actions"; // อย่าลืมสร้าง Action นี้นะครับ
+import { updateCategory } from "@/lib/actions";
 import { notFound, redirect } from "next/navigation";
 import { Save, ArrowLeft, FolderTree, Type, Link as LinkIcon, AlignLeft } from "lucide-react";
 import Link from "next/link";
-import SubmitButton from "@/components/admin/SubmitButton"; // ใช้ปุ่มที่เราเคยสร้างไว้ (ถ้ามี) หรือใช้ button ปกติก็ได้
+// import SubmitButton from "@/components/admin/SubmitButton"; 
 
 export default async function EditCategoryPage({ params }: { params: Promise<{ id: string }> }) {
+  // 1. รอ params เพื่อเอา id
   const { id } = await params;
 
-  // ดึงข้อมูลเดิม
+  // 2. ดึงข้อมูลเดิมจาก Database
   const category = await prisma.category.findUnique({
     where: { id }
   });
 
   if (!category) return notFound();
 
-  // Server Action สำหรับ Update
-  async function updateAction(formData: id, FormData) {
+  // 3. Server Action สำหรับ Update (แก้ให้ถูกต้องแล้ว)
+  async function updateAction(formData: FormData) {
     "use server";
-    await updateCategory(formData);
+    
+    // ✅ ถูกต้อง: รับแค่ formData จากฟอร์ม แต่ส่ง id (ที่มีอยู่แล้ว) ไปให้ updateCategory
+    await updateCategory(id, formData);
+    
     redirect("/admin/categories");
   }
 
@@ -42,6 +46,8 @@ export default async function EditCategoryPage({ params }: { params: Promise<{ i
       </div>
 
       <form action={updateAction} className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
+        
+        {/* Hidden ID */}
         <input type="hidden" name="id" value={category.id} />
 
         {/* Name Input */}
@@ -87,7 +93,6 @@ export default async function EditCategoryPage({ params }: { params: Promise<{ i
         </div>
 
         <div className="pt-4 border-t border-slate-800">
-            {/* ถ้าคุณมี SubmitButton component ให้ใช้ตัวนั้น ถ้าไม่มีให้ใช้ button ธรรมดา */}
             <button 
                 type="submit" 
                 className="w-full bg-amber-600 hover:bg-amber-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-amber-900/20 active:scale-95 transition-all flex items-center justify-center gap-2"
