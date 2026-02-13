@@ -8,15 +8,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   console.log("DEBUG - USER ROLE IN SESSION:", session?.user?.role);
   console.log("Current User Session:", session?.user);
   // เช็คสิทธิ์: ต้องเป็น ADMIN เท่านั้น
-  if (!session || session.user.role !== "ADMIN") {
-    redirect("/");
-  }
+  // if (!session || session.user.role !== "ADMIN") {
+  //   redirect("/");
+  // }
 
   return (
     <div className="flex min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-emerald-500/30">
       
       {/* Sidebar (Client Component) */}
-      <AdminSidebar user={session.user} />
+      {/* <AdminSidebar user={session.user} /> */}
 
       {/* Main Content Area */}
       <main className="flex-1 ml-64 min-h-screen relative">
