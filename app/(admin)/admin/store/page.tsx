@@ -14,7 +14,8 @@ export default async function AdminStorePage({ searchParams }: { searchParams: P
   const products = await prisma.product.findMany({
     where: q ? {
         OR: [
-            { name: { contains: q, mode: 'insensitive' } },
+            // ✅ แก้ไขจุดที่ 1: เปลี่ยน name เป็น title ในการค้นหา
+            { title: { contains: q, mode: 'insensitive' } },
             { description: { contains: q, mode: 'insensitive' } }
         ]
     } : undefined,
@@ -60,7 +61,6 @@ export default async function AdminStorePage({ searchParams }: { searchParams: P
                 <button className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold transition-colors">
                     ทั้งหมด
                 </button>
-                {/* ปุ่ม Filter อื่นๆ สามารถทำ Logic เพิ่มทีหลังได้ */}
             </div>
         </div>
 
@@ -91,9 +91,9 @@ export default async function AdminStorePage({ searchParams }: { searchParams: P
                              )}
                         </div>
                         <div className="min-w-0 flex flex-col gap-1.5">
-                            <p className="font-bold text-white text-base truncate max-w-[350px] group-hover:text-emerald-400 transition-colors">{product.name}</p>
+                            {/* ✅ แก้ไขจุดที่ 2: เปลี่ยน product.name เป็น product.title */}
+                            <p className="font-bold text-white text-base truncate max-w-[350px] group-hover:text-emerald-400 transition-colors">{product.title}</p>
                             
-                            {/* ✅ เพิ่มส่วนแสดง Analytics (Views / Downloads) */}
                             <div className="flex items-center gap-2">
                                 <span className="inline-flex items-center gap-1.5 text-[10px] bg-slate-950 border border-slate-800 text-slate-400 px-2 py-1 rounded-md">
                                     <Eye size={12} className="text-blue-400" /> {product.viewCount.toLocaleString()}
@@ -111,7 +111,7 @@ export default async function AdminStorePage({ searchParams }: { searchParams: P
 
                   {/* Price */}
                   <td className="px-6 py-4 text-right align-middle">
-                    {product.isFree || product.price === 0 ? (
+                    {product.isFree || Number(product.price) === 0 ? (
                         <span className="font-bold text-emerald-400 text-xs bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">FREE</span>
                     ) : (
                         <span className="font-mono text-white font-bold text-base">฿{Number(product.price).toLocaleString()}</span>
@@ -136,7 +136,7 @@ export default async function AdminStorePage({ searchParams }: { searchParams: P
                   <td className="px-6 py-4 text-right align-middle">
                     <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                         <Link 
-                            href={`/admin/store/${product.id}/edit`} 
+                            href={`/admin/store/${product.id}`} // ลิงก์ไปหน้าแก้ไข (หรือใช้ /edit ก็ได้แล้วแต่ Route)
                             className="p-2 bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg text-slate-400 transition-all border border-slate-700 hover:border-blue-500 shadow-sm" 
                             title="แก้ไข"
                         >
