@@ -15,7 +15,7 @@ interface Category {
 function ProductForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const productId = searchParams.get("id"); 
+  const productId = searchParams.get("id"); // รับ ID จาก URL ?id=... เพื่อดูว่าเป็นโหมดแก้ไขไหม
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -23,7 +23,7 @@ function ProductForm() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isFree, setIsFree] = useState(false);
 
-  // ✅ แก้ไข State: เปลี่ยนจาก name เป็น title ให้ตรงกับ DB
+  // ✅ แก้ไข: เปลี่ยน name เป็น title
   const [formDataState, setFormDataState] = useState({
     title: "", 
     price: "",
@@ -32,20 +32,23 @@ function ProductForm() {
     categoryId: ""
   });
 
+  // 1. ดึงหมวดหมู่ และ ข้อมูลสินค้า (ถ้ามี ID)
   useEffect(() => {
     const initData = async () => {
       setFetching(true);
       try {
+        // ดึงหมวดหมู่
         const catRes = await fetch('/api/categories');
         if (catRes.ok) {
           setCategories(await catRes.json());
         }
 
+        // ถ้ามี productId แสดงว่าเป็นการ "แก้ไข" -> ให้ดึงข้อมูลเก่ามาใส่
         if (productId) {
           const product = await getProduct(productId);
           if (product) {
             setFormDataState({
-              title: product.title || "", // ✅ ใช้ title
+              title: product.title || "",  // ✅ ใช้ title
               price: product.price.toString(),
               description: product.description || "",
               fileUrl: product.downloadUrl || product.fileUrl || "",
@@ -72,6 +75,7 @@ function ProductForm() {
     }
   };
 
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormDataState(prev => ({ ...prev, [name]: value }));
@@ -85,9 +89,11 @@ function ProductForm() {
     
     let result;
     if (productId) {
+        // กรณีแก้ไข
         formData.append("id", productId);
         result = await updateProduct(formData);
     } else {
+        // กรณีสร้างใหม่
         result = await createProduct(formData);
     }
 
@@ -112,6 +118,7 @@ function ProductForm() {
   return (
     <div className="p-8 max-w-6xl mx-auto min-h-screen">
       
+      {/* Header */}
       <div className="mb-8">
         <Link href="/admin/store" className="inline-flex items-center text-slate-400 hover:text-white mb-4 text-sm transition-colors group">
             <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" /> กลับไปหน้าร้านค้า
@@ -125,7 +132,7 @@ function ProductForm() {
                     {productId ? "แก้ไขสินค้า" : "ลงขายสินค้าใหม่"}
                 </h1>
                 <p className="text-slate-400 mt-1">
-                    {productId ? `กำลังแก้ไขคอร์ส: ${formDataState.title}` : "กรอกรายละเอียดสินค้าของคุณให้ครบถ้วน"}
+                    {productId ? `กำลังแก้ไข ID: ${productId}` : "กรอกรายละเอียดสินค้าของคุณให้ครบถ้วน"}
                 </p>
             </div>
         </div>
@@ -133,13 +140,15 @@ function ProductForm() {
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
+        {/* --- Left Column: Main Info --- */}
         <div className="lg:col-span-2 space-y-6">
             
+            {/* Name Input */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1 flex items-center gap-2">
                     <Type size={14} /> ชื่อสินค้า
                 </label>
-                {/* ✅ เปลี่ยน name="name" เป็น name="title" */}
+                {/* ✅ แก้ไข: name="title" และ value={formDataState.title} */}
                 <input 
                     name="title" 
                     value={formDataState.title}
@@ -150,6 +159,7 @@ function ProductForm() {
                 />
             </div>
 
+            {/* Description */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col h-full">
                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1 flex items-center gap-2">
                     <AlignLeft size={14} /> รายละเอียดสินค้า
@@ -164,6 +174,7 @@ function ProductForm() {
                 />
             </div>
 
+            {/* File URL */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1 flex items-center gap-2">
                     <LinkIcon size={14} /> ลิงก์ดาวน์โหลด (Google Drive / GitHub)
@@ -181,10 +192,14 @@ function ProductForm() {
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-blue-400 font-mono text-sm focus:outline-none focus:border-emerald-500 transition-all" 
                     />
                 </div>
+                <p className="text-[10px] text-slate-500 mt-2 ml-1">*ลิงก์นี้จะถูกส่งให้ลูกค้าทางอีเมลอัตโนมัติ</p>
             </div>
         </div>
 
+        {/* --- Right Column: Settings --- */}
         <div className="space-y-6 lg:sticky lg:top-8 h-fit">
+            
+            {/* Save Button */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
                 <h3 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">ดำเนินการ</h3>
                 <button 
@@ -196,11 +211,13 @@ function ProductForm() {
                 </button>
             </div>
 
+            {/* Price & Free Toggle */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
                 <h3 className="text-white font-bold mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
                     <DollarSign size={16} className="text-emerald-500" /> ราคาขาย
                 </h3>
                 
+                {/* Toggle Free */}
                 <div className="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl mb-4 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setIsFree(!isFree)}>
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg ${isFree ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
@@ -214,6 +231,7 @@ function ProductForm() {
                     <input type="hidden" name="isFree" value={isFree ? "true" : "false"} />
                 </div>
 
+                {/* Price Input */}
                 <div className={`transition-all duration-300 ${isFree ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -223,7 +241,7 @@ function ProductForm() {
                             name="price" 
                             type="number" 
                             disabled={isFree}
-                            value={isFree ? "0" : formDataState.price}
+                            value={formDataState.price}
                             onChange={handleInputChange}
                             placeholder="0.00" 
                             className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-white font-mono text-lg font-bold focus:outline-none focus:border-emerald-500 transition-all" 
@@ -232,23 +250,27 @@ function ProductForm() {
                 </div>
             </div>
 
+            {/* Category */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1 flex items-center gap-2">
                     <FolderTree size={14} /> หมวดหมู่
                 </label>
-                <select 
-                    name="categoryId" 
-                    value={formDataState.categoryId}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white appearance-none cursor-pointer focus:outline-none focus:border-emerald-500 transition-all"
-                >
-                    <option value="">-- เลือกหมวดหมู่ --</option>
-                    {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                </select>
+                <div className="relative">
+                    <select 
+                        name="categoryId" 
+                        value={formDataState.categoryId}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white appearance-none cursor-pointer focus:outline-none focus:border-emerald-500 transition-all"
+                    >
+                        <option value="">-- เลือกหมวดหมู่ --</option>
+                        {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
+            {/* Image Upload */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
                 <h3 className="text-white font-bold mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
                     <ImageIcon size={16} className="text-emerald-500" /> รูปปกสินค้า
@@ -287,6 +309,7 @@ function ProductForm() {
   );
 }
 
+// Wrap Component with Suspense
 export default function CreateStoreProductPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-emerald-500"><Loader2 className="animate-spin" size={40} /></div>}>
