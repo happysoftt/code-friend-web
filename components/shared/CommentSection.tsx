@@ -1,13 +1,12 @@
 "use client";
 
-import { postComment, deleteComment } from "@/lib/actions"; // ✅ ใช้ชื่อตามที่คุณส่งมา
+import { postComment, deleteComment } from "@/lib/actions"; 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Send, Trash2, MessageSquare, Clock, User as UserIcon } from "lucide-react";
 import Image from "next/image";
-import toast from "react-hot-toast"; // ✅ ใช้ Toast แทน Alert
+import toast from "react-hot-toast"; 
 
-// 🕒 ฟังก์ชันแปลงเวลาเป็นภาษาไทย
 function timeAgo(dateInput: Date | string) {
   const date = new Date(dateInput);
   const now = new Date();
@@ -32,7 +31,7 @@ interface CommentProps {
     name: string | null;
     image: string | null;
   };
-  isOptimistic?: boolean; // ✅ เพิ่ม Flag สำหรับสถานะรอ Server
+  isOptimistic?: boolean; 
 }
 
 interface CommentSectionProps {
@@ -41,25 +40,25 @@ interface CommentSectionProps {
   snippetId?: string;       
   learningPathId?: string; 
   showcaseId?: string;
-  currentUser?: any; // ✅ รับ User จาก Server Component มาเลย (จะได้ไม่ต้องรอ useSession)
+  currentUser?: any; 
 }
 
 export default function CommentSection({ 
-  comments: initialComments = [], // เปลี่ยนชื่อเป็น initialComments
+  comments: initialComments = [], 
   articleId, 
   snippetId, 
   learningPathId, 
   showcaseId,
-  currentUser // รับ props นี้เพิ่ม ถ้าสะดวก หรือใช้ useSession เหมือนเดิมก็ได้
+  currentUser 
 }: CommentSectionProps) {
   
   const [comments, setComments] = useState<CommentProps[]>(initialComments);
   const [content, setContent] = useState("");
-  const [isPending, startTransition] = useTransition(); // ✅ ใช้ useTransition แทน loading state
+  const [isPending, startTransition] = useTransition(); 
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault(); // คุม Form เองเพื่อทำ Optimistic Update
+    e.preventDefault(); 
     if (!content.trim()) return;
 
     if (!currentUser) {
@@ -68,7 +67,6 @@ export default function CommentSection({
        return;
     }
 
-    // 🚀 Optimistic Update: สร้างคอมเมนต์จำลองแสดงทันที
     const tempId = Math.random().toString();
     const newComment: CommentProps = {
         id: tempId,
@@ -82,8 +80,8 @@ export default function CommentSection({
         isOptimistic: true
     };
 
-    setComments([newComment, ...comments]); // เอาคอมเมนต์ใหม่ขึ้นบนสุดทันที
-    setContent(""); // เคลียร์ช่องพิมพ์
+    setComments([newComment, ...comments]); 
+    setContent(""); 
 
     startTransition(async () => {
         const formData = new FormData();
@@ -96,11 +94,11 @@ export default function CommentSection({
         const res = await postComment(formData);
 
         if (!res.success) {
-            toast.error(res.error);
-            // ถ้าพัง ให้เอาคอมเมนต์จำลองออก
+            // ✅ แก้ไขตรงนี้: ใส่Fallback string ป้องกัน undefined
+            toast.error(res.error || "ไม่สามารถส่งความคิดเห็นได้");
             setComments(prev => prev.filter(c => c.id !== tempId));
         } else {
-            router.refresh(); // โหลดข้อมูลจริงมาทับ
+            router.refresh(); 
         }
     });
   }
@@ -108,12 +106,11 @@ export default function CommentSection({
   async function handleDelete(id: string) {
       if(!confirm("ต้องการลบความคิดเห็นนี้?")) return;
       
-      // Optimistic Delete: ลบออกจากหน้าจอก่อนเลย
       setComments(prev => prev.filter(c => c.id !== id));
       
       const res = await deleteComment(id);
       if(!res.success) {
-          toast.error("ลบไม่สำเร็จ");
+          toast.error(res.error || "ลบไม่สำเร็จ");
           router.refresh();
       } else {
           toast.success("ลบเรียบร้อย");
@@ -126,7 +123,6 @@ export default function CommentSection({
         <MessageSquare className="text-blue-500" /> ความคิดเห็น <span className="text-slate-500 text-sm">({comments.length})</span>
       </h3>
 
-      {/* 1. กล่องพิมพ์คอมเมนต์ */}
       <form onSubmit={handleSubmit} className="mb-8 flex gap-4">
         <div className="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex-shrink-0 border border-slate-700">
            {currentUser?.image ? (
@@ -155,7 +151,6 @@ export default function CommentSection({
         </div>
       </form>
 
-      {/* 2. รายการคอมเมนต์ */}
       <div className="space-y-6">
         {comments.map((comment) => (
             <div key={comment.id} className={`flex gap-4 group ${comment.isOptimistic ? 'opacity-70 grayscale-[0.3]' : ''}`}>
@@ -176,7 +171,6 @@ export default function CommentSection({
                             </span>
                         </div>
                         
-                        {/* ปุ่มลบ */}
                         {(currentUser?.id === comment.user.id || currentUser?.role === "ADMIN") && !comment.isOptimistic && (
                             <button 
                                 onClick={() => handleDelete(comment.id)}
