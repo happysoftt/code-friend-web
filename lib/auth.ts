@@ -95,8 +95,9 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           image: user.image,
-          role: user.role.name,
-        };
+          role: user.role?.name || "USER",
+          roleId: user.roleId,
+        }as any;
       },
     }),
   ],
