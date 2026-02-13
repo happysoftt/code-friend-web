@@ -14,6 +14,8 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
     where: { id },
     include: {
         profile: true,
+        // ✅ เพิ่ม role: true เพื่อดึงข้อมูล Role
+        role: true, 
         orders: {
             include: { product: true },
             orderBy: { createdAt: "desc" }
@@ -23,6 +25,13 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   });
 
   if (!user) return <div className="p-8 text-white">ไม่พบผู้ใช้งาน</div>;
+
+  // ✅ Logic ป้องกัน Error เรื่อง Role
+  // ถ้า user.role มีค่า ให้เอาชื่อมา ถ้าไม่มีให้เป็น "MEMBER"
+  // (ใช้ any cast เล็กน้อยเพื่อให้ TypeScript ไม่บ่นเรื่อง null ในบางเคส)
+  const userRole = (user as any).role;
+  const roleName = userRole?.name || "MEMBER";
+  const isAdmin = roleName === 'ADMIN';
 
   // คำนวณยอดซื้อรวม
   const totalSpent = user.orders
@@ -48,8 +57,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                   <p className="text-slate-500 mb-4">{user.email}</p>
                   
                   <div className="flex justify-center gap-2 mb-6">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.role === 'ADMIN' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-400'}`}>
-                          {user.role}
+                      {/* ✅ แก้ไข: ใช้ตัวแปร roleName และ isAdmin ที่เตรียมไว้ */}
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${isAdmin ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-400'}`}>
+                          {roleName}
                       </span>
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                           {user.isActive ? 'Active' : 'Banned'}
@@ -104,10 +114,10 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
               {/* Management Component */}
               <UserManageCard user={{ 
                   id: user.id, 
-                  role: user.role,
+                  role: roleName, // ✅ ส่ง roleName ที่เป็น string
                   name: user.name, 
                   email: user.email,
-                  isActive: user.isActive // <--- ✅ เพิ่มตรงนี้ครับ เพื่อให้ปุ่มแบนรู้สถานะ
+                  isActive: user.isActive 
               }} />
 
               {/* Order History */}
@@ -131,7 +141,8 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                               {user.orders.map(order => (
                                   <tr key={order.id} className="hover:bg-slate-800/50">
                                       <td className="p-4">{new Date(order.createdAt).toLocaleDateString("th-TH")}</td>
-                                      <td className="p-4 font-bold text-white">{order.product.name}</td>
+                                      {/* ✅ แก้ product.name เป็น product.title ตาม Database */}
+                                      <td className="p-4 font-bold text-white">{order.product?.title || "Unknown Product"}</td>
                                       <td className="p-4">฿{Number(order.total).toLocaleString()}</td>
                                       <td className="p-4 text-right">
                                           <span className={`px-2 py-1 rounded text-xs font-bold ${
