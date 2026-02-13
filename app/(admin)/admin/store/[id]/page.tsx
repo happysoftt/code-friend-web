@@ -118,6 +118,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             </div>
          </div>
 
+
          {/* Articles */}
          <div>
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><FileText className="text-blue-500" /> บทความล่าสุด</h2>
