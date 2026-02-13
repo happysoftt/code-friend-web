@@ -48,7 +48,7 @@ function ProductForm() {
           const product = await getProduct(productId);
           if (product) {
             setFormDataState({
-              name: product.title || product.name || "", 
+              name: product.title || "", 
               price: product.price.toString(),
               description: product.description || "",
               fileUrl: product.downloadUrl || product.fileUrl || "",
@@ -75,6 +75,7 @@ function ProductForm() {
     }
   };
 
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormDataState(prev => ({ ...prev, [name]: value }));
