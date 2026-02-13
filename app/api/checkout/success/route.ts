@@ -27,10 +27,13 @@ export async function GET(req: Request) {
 
     if (session.payment_status === "paid") {
       
-      // เช็คก่อนว่า Order นี้เสร็จไปแล้วหรือยัง (กันรีเฟรชหน้าแล้วทำซ้ำ)
+      // ✅ แก้ไข 1: ดึง productId มาด้วย เพื่อเอาไปใช้สร้าง License Key
       const existingOrder = await prisma.order.findUnique({
           where: { id: orderId },
-          select: { status: true }
+          select: { 
+              status: true,
+              productId: true // <--- เพิ่มตรงนี้
+          }
       });
 
       if (existingOrder && existingOrder.status !== "COMPLETED") {
@@ -39,9 +42,6 @@ export async function GET(req: Request) {
             where: { id: orderId },
             data: {
               status: "COMPLETED",
-              // ❌ ลบบรรทัด transactionId ออก เพราะ Database ไม่มีช่องนี้
-              // ถ้าต้องการเก็บจริงๆ อาจจะใช้ช่อง slipUrl แทนแก้ขัดไปก่อนได้ เช่น:
-              // slipUrl: "STRIPE:" + ((session.payment_intent as string) || sessionId),
             },
           });
 
@@ -54,6 +54,8 @@ export async function GET(req: Request) {
              await prisma.licenseKey.create({
                 data: {
                     orderId: orderId,
+                    // ✅ แก้ไข 2: ใส่ productId ที่ดึงมา
+                    productId: existingOrder.productId, 
                     key: `KEY-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Date.now()}`
                 }
              });
