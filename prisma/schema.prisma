@@ -58,8 +58,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   // Role & Profile
-  roleId  String
-  role    Role     @relation(fields: [roleId], references: [id])
+  roleId  String?
+  role   Role?     @relation(fields: [roleId], references: [id])
   profile Profile?
 
   // Gamification
