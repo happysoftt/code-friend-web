@@ -2,29 +2,32 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 
-// ✅ แก้ไข: ใช้ as any เพื่อปิด Error เรื่อง Version ของ Stripe
+// ✅ ใช้ as any ดักไว้เพื่อป้องกัน error เรื่อง version ไม่ตรง
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-01-27.acacia" as any, 
 });
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get("session_id");
   const orderId = searchParams.get("order_id");
 
+  // ถ้าไม่มีข้อมูลที่จำเป็น ให้ดีดกลับไปหน้าร้านค้า
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
   if (!sessionId || !orderId) {
-    // ถ้าไม่มีข้อมูล ให้ดีดกลับไปหน้าร้านค้า
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     return NextResponse.redirect(`${baseUrl}/store`);
   }
 
   try {
-    // 1. เช็คกับ Stripe อีกรอบเพื่อความชัวร์ว่าจ่ายจริง
+    // 1. เช็คกับ Stripe ว่าจ่ายเงินจริงไหม
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (session.payment_status === "paid") {
       
-      // ✅ เพิ่มการเช็ค: ถ้า Order นี้เคยทำรายการสำเร็จไปแล้ว ไม่ต้องทำซ้ำ (กันลูกค้ารีเฟรชหน้า)
+      // เช็คก่อนว่า Order นี้เสร็จไปแล้วหรือยัง (กันรีเฟรชหน้าแล้วทำซ้ำ)
       const existingOrder = await prisma.order.findUnique({
           where: { id: orderId },
           select: { status: true }
@@ -36,8 +39,9 @@ export async function GET(req: Request) {
             where: { id: orderId },
             data: {
               status: "COMPLETED",
-              // ใช้ session.id แทนถ้า payment_intent ไม่มีค่า
-              transactionId: (session.payment_intent as string) || sessionId, 
+              // ❌ ลบบรรทัด transactionId ออก เพราะ Database ไม่มีช่องนี้
+              // ถ้าต้องการเก็บจริงๆ อาจจะใช้ช่อง slipUrl แทนแก้ขัดไปก่อนได้ เช่น:
+              // slipUrl: "STRIPE:" + ((session.payment_intent as string) || sessionId),
             },
           });
 
@@ -61,6 +65,5 @@ export async function GET(req: Request) {
   }
 
   // 4. พาผู้ใช้ไปหน้า Dashboard พร้อมแจ้งว่าสำเร็จ
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
   return NextResponse.redirect(`${baseUrl}/dashboard?success=true`);
 }
