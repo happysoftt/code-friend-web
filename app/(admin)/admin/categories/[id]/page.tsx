@@ -16,7 +16,7 @@ export default async function EditCategoryPage({ params }: { params: Promise<{ i
   if (!category) return notFound();
 
   // Server Action สำหรับ Update
-  async function updateAction(formData: FormData) {
+  async function updateAction(formData: id, FormData) {
     "use server";
     await updateCategory(formData);
     redirect("/admin/categories");
