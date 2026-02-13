@@ -1,0 +1,506 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================
+// 1. User & Auth & Role
+// ==============================
+model Account {
+  id                 String  @id @default(uuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String    @unique
+  password      String?
+  image         String?
+  emailVerified DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  // Role & Profile
+  roleId  String
+  role    Role     @relation(fields: [roleId], references: [id])
+  profile Profile?
+
+  // Gamification
+  xp     Int         @default(0)
+  level  Int         @default(1)
+  badges UserBadge[]
+
+  // Content Relations
+  articles  Article[]
+  snippets  Snippet[]
+  showcases Showcase[]
+  comments  Comment[]
+  reviews   Review[]
+
+  // Activity & History
+  bookmarks         Bookmark[]
+  showcaseLikes     ShowcaseLike[]
+  downloadHistories DownloadHistory[]
+  orders            Order[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+}
+
+model Profile {
+  id       String  @id @default(uuid())
+  bio      String? @db.Text
+  website  String?
+  github   String?
+  facebook String?
+  stack    String?
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions String[]
+  users       User[]
+}
+
+// ==============================
+// 2. Gamification (Badges)
+// ==============================
+
+model Badge {
+  id          String @id @default(uuid())
+  name        String @unique
+  description String
+  image       String
+  criteria    String
+
+  users UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  badgeId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+}
+
+// ==============================
+// 3. Blog & Content (Articles)
+// ==============================
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+
+  articles Article[]
+  products Product[]
+}
+
+model Tag {
+  id   String @id @default(uuid())
+  name String @unique
+  slug String @unique
+
+  articles Article[]
+}
+
+model Article {
+  id         String   @id @default(uuid())
+  title      String
+  slug       String   @unique
+  excerpt    String?
+  content    String   @db.Text
+  coverImage String?
+  published  Boolean  @default(false)
+  views      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  tags      Tag[]
+  comments  Comment[]
+  bookmarks Bookmark[]
+
+  @@index([slug])
+  @@index([authorId])
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  articleId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+}
+
+// ==============================
+// 4. Community (Snippets & Showcases)
+// ==============================
+
+model Snippet {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  language    String
+  description String?
+  isPublic    Boolean  @default(true)
+  approved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  versions SnippetVersion[]
+  comments Comment[]
+}
+
+model SnippetVersion {
+  id        String   @id @default(uuid())
+  code      String   @db.Text
+  version   String
+  changelog String?
+  createdAt DateTime @default(now())
+
+  snippetId String
+  snippet   Snippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+}
+
+model Showcase {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  image       String
+  demoUrl     String?
+  githubUrl   String?
+  approved    Boolean  @default(false)
+  demoClicks  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  comments Comment[]
+  likes    ShowcaseLike[]
+}
+
+model ShowcaseLike {
+  id         String   @id @default(uuid())
+  userId     String
+  showcaseId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  showcase Showcase @relation(fields: [showcaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, showcaseId])
+}
+
+// ==============================
+// 5. Learning (LMS)
+// ==============================
+
+model LearningPath {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String?
+  thumbnail   String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons  Lesson[]
+  comments Comment[]
+}
+
+model Lesson {
+  id       String @id @default(uuid())
+  title    String
+  slug     String @unique
+  content  String @db.Text
+  videoUrl String?
+  duration Int    @default(0)
+  order    Int    @default(0)
+
+  learningPathId String
+  learningPath   LearningPath @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([learningPathId])
+}
+
+// ==============================
+// 6. Interaction (Comments & Notifications)
+// ==============================
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Polymorphic Relations
+  articleId String?
+  article   Article? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  learningPathId String?
+  learningPath   LearningPath? @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+
+  
+
+  snippetId String?
+  snippet   Snippet? @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+
+  showcaseId String?
+  showcase   Showcase? @relation(fields: [showcaseId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==============================
+// 7. E-Commerce (Product, Order, License)
+// ==============================
+
+model Product {
+  id            String   @id @default(uuid())
+  title         String
+  slug          String   @unique
+  description   String   @db.Text
+  price         Decimal  @default(0) @db.Decimal(10, 2)
+  isFree        Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  image         String?
+  fileUrl       String?
+  downloadUrl   String?
+  viewCount     Int      @default(0)
+  downloadCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  orders            Order[]
+  licenses          LicenseKey[]
+  reviews           Review[]
+  downloads         DownloadResource[]
+  downloadHistories DownloadHistory[]
+}
+
+model Order {
+  id         String      @id @default(uuid())
+  total      Decimal     @db.Decimal(10, 2)
+  status     OrderStatus @default(PENDING)
+  paymentRef String?
+  slipUrl    String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  licenseKeys LicenseKey[]
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  WAITING_VERIFY
+}
+
+model LicenseKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int      @default(5)
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id        String    @id @default(uuid())
+  code      String    @unique
+  discount  Int
+  maxUses   Int       @default(100)
+  usedCount Int       @default(0)
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+}
+
+// ==============================
+// 8. Downloads & Resources
+// ==============================
+
+model DownloadResource {
+  id        String   @id @default(uuid())
+  version   String
+  fileUrl   String
+  createdAt DateTime @default(now())
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model DownloadHistory {
+  id           String   @id @default(cuid())
+  ipAddress    String?
+  downloadedAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+}
+
+model DownloadToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  productId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ==============================
+// 9. System & Logs
+// ==============================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+}
+
+model SystemConfig {
+  id                  String  @id @default("default")
+  siteName            String  @default("Code Friend")
+  description         String?
+  announceEnabled     Boolean @default(true)
+  announceText        String?
+  maintenanceMode     Boolean @default(false)
+  registrationEnabled Boolean @default(true)
+
+  // Payment Info
+  promptpayId   String?
+  promptpayName String?
+
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSettings {
+  id               String   @id @default(uuid())
+  siteName         String   @default("Code Friend")
+  description      String   @default("Description")
+  logoUrl          String?
+  bannerUrl        String?
+  themeColor       String   @default("#9333ea")
+  announcement     String?
+  showAnnouncement Boolean  @default(false)
+  contactEmail     String?
+  facebookUrl      String?
+  lineUrl          String?
+  updatedAt        DateTime @updatedAt
+}
