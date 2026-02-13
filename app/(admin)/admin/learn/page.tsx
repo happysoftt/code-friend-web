@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Plus, Search, BookOpen, Layers, Edit, GraduationCap } from "lucide-react";
+// ✅ เพิ่ม Trash2 เข้ามาใน import
+import { Plus, Search, BookOpen, Layers, Edit, GraduationCap, Trash2 } from "lucide-react";
 import { revalidatePath } from "next/cache";
-import DeleteButton from "@/components/admin/DeleteButton"; // ✅ เรียกใช้ปุ่มลบที่เป็น Client Component
 
 export const dynamic = 'force-dynamic';
 
@@ -116,20 +116,26 @@ export default async function AdminLearnPage({ searchParams }: { searchParams: P
                   <td className="px-6 py-4 text-right align-middle">
                     <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                         
-                        {/* ปุ่มจัดการบทเรียน (Main Action) */}
+                        {/* ปุ่มจัดการบทเรียน */}
                         <Link href={`/admin/learn/${path.id}`} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition-all shadow-lg shadow-purple-900/20 flex items-center gap-2">
                             <Layers size={14} /> จัดการบทเรียน
                         </Link>
 
-                        {/* ปุ่มแก้ไขข้อมูลคอร์ส */}
+                        {/* ปุ่มแก้ไข */}
                         <Link href={`/admin/learn/${path.id}/edit`} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-all border border-slate-700" title="แก้ไขข้อมูลคอร์ส">
                             <Edit size={16} />
                         </Link>
                         
-                        {/* ปุ่มลบ (ใช้ Client Component DeleteButton) */}
+                        {/* ✅ แก้ไขจุดนี้: ใช้ปุ่ม Submit ธรรมดาแทน DeleteButton component */}
                         <form action={deleteAction}>
                             <input type="hidden" name="id" value={path.id} />
-                            <DeleteButton /> 
+                            <button 
+                                type="submit"
+                                className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 rounded-lg transition-all border border-red-500/20"
+                                title="ลบคอร์ส"
+                            >
+                                <Trash2 size={16} />
+                            </button>
                         </form>
                     </div>
                   </td>
