@@ -117,7 +117,8 @@ export default async function AdminSnippetPage({ searchParams }: { searchParams:
                      </pre>
                      <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-950 to-transparent"></div>
                  </div>
-                 
+                
+                
                  {/* Footer & Actions */}
                  <div className="flex justify-between items-center mt-auto pt-2">
                      <Link href={`/snippets/${item.slug}`} target="_blank" className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors">
