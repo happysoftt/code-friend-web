@@ -7,12 +7,12 @@ import { ArrowLeft, Mail, Calendar, Shield, Package, FileText, User as UserIcon 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  // 1. ดึงข้อมูล User พร้อม Relation ที่เกี่ยวข้อง
+  // 1. ดึงข้อมูล User
   const user = await prisma.user.findUnique({
     where: { id },
     include: {
       profile: true,
-      role: true, // ✅ จุดที่ 1: ต้องสั่งดึงตาราง Role มาด้วย
+      role: true, // ✅ ต้องดึง Role มาด้วย
       articles: {
         orderBy: { createdAt: 'desc' },
         take: 5
@@ -57,7 +57,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 </p>
                 
                 <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-6">
-                    {/* ✅ จุดที่ 2: เรียกใช้ user.role.name แทน user.role เพียวๆ */}
+                    {/* ✅ แก้ไขจุดที่ Error: ใช้ user.role?.name เช็คแทน */}
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${user.role?.name === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                         <Shield size={12} /> {user.role?.name || "MEMBER"}
                     </span>
