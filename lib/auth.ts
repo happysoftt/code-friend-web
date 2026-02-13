@@ -113,37 +113,45 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user, trigger, session }) {
+async jwt({ token, user, trigger, session }) {
+      // 1. เก็บค่าพื้นฐานตอนล็อกอิน
       if (user) {
         token.id = user.id;
-        // @ts-ignore
         token.role = user.role || "USER";
       }
 
-      // If role is missing in token (common on first Google login), fetch from DB
+      // 2. ถ้า Role หาย ให้ไปดึงจาก DB
       if (!token.role && token.email) {
         const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          include: { role: true },
+           where: { email: token.email },
+           include: { role: true }
         });
         if (dbUser) {
-          token.role = dbUser.role?.name || "USER";
-          token.id = dbUser.id;
+           token.id = dbUser.id;
+           token.role = dbUser.role?.name || "USER";
         }
       }
 
+      // 🔥 3. ไม้ตาย: บังคับให้เมลของคุณเป็น ADMIN เท่านั้น! (แก้ตรงนี้จบแน่นอน)
+      if (token.email === "happymumt01@gmail.com") {
+         token.role = "ADMIN";
+      }
+
+      // 4. รองรับการอัปเดต Profile
       if (trigger === "update" && session?.name) {
         token.name = session.name;
       }
 
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
+        // ส่งค่าจาก Token ไปให้หน้าเว็บใช้
         // @ts-ignore
         session.user.id = token.id as string;
         // @ts-ignore
-        session.user.role = token.role as string;
+        session.user.role = token.role as string; // จะได้ค่า ADMIN มาจากข้อ 3 ด้านบน
       }
       return session;
     },
