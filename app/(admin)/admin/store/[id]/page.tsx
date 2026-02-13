@@ -12,7 +12,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     where: { id },
     include: {
       profile: true,
-      role: true, // ✅ ต้องดึง Role มาด้วย
+      // ✅ กฎข้อที่ 1: ต้องสั่ง include เสมอ ถ้าจะใช้ข้อมูล Role
+      role: true, 
       articles: {
         orderBy: { createdAt: 'desc' },
         take: 5
@@ -57,7 +58,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 </p>
                 
                 <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-6">
-                    {/* ✅ แก้ไขจุดที่ Error: ใช้ user.role?.name เช็คแทน */}
+                    
+                    {/* ✅ กฎข้อที่ 2: Role เป็น Object ต้องเรียก user.role?.name ห้ามเรียก user.role เฉยๆ */}
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${user.role?.name === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                         <Shield size={12} /> {user.role?.name || "MEMBER"}
                     </span>
@@ -107,7 +109,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 {user.orders.length > 0 ? user.orders.map(order => (
                     <div key={order.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
                         <div>
-                             <p className="text-white font-bold text-sm">{order.product.title}</p>
+                             {/* ✅ ใช้ Optional Chaining (?) เผื่อ product เป็น null */}
+                             <p className="text-white font-bold text-sm">{order.product?.title || "สินค้าถูกลบ"}</p>
                              <p className="text-slate-500 text-xs">{order.createdAt.toLocaleDateString('th-TH')}</p>
                         </div>
                         <span className="text-emerald-400 font-mono font-bold">฿{Number(order.total).toLocaleString()}</span>
@@ -117,7 +120,6 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 )}
             </div>
          </div>
-
 
          {/* Articles */}
          <div>
