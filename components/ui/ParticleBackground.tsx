@@ -13,28 +13,29 @@ export default function ParticleBackground() {
     if (!ctx) return;
 
     let particlesArray: Particle[] = [];
-    let animationFrameId: number;
+    // ✅ จุดที่ 1: กำหนดค่าเริ่มต้นเป็น 0 เพื่อให้ TS สบายใจ
+    let animationFrameId: number = 0;
 
-    // ปรับขนาด Canvas ให้เต็มจอ
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       init();
     };
 
-    // จัดการเมาส์
     const mouse = {
-      x: -100, // เริ่มต้นนอกจอ
+      x: -100,
       y: -100,
-      radius: 150, // รัศมีที่เส้นจะเชื่อมถึง
+      radius: 150,
     };
 
-    window.addEventListener("mousemove", (event) => {
+    // ✅ จุดที่ 2: แยกฟังก์ชัน mouseMove ออกมาเพื่อให้ลบออกได้ตอน Cleanup
+    const handleMouseMove = (event: MouseEvent) => {
       mouse.x = event.x;
       mouse.y = event.y;
-    });
+    };
 
-    // คลาสสำหรับเม็ดอนุภาค
+    window.addEventListener("mousemove", handleMouseMove);
+
     class Particle {
       x: number;
       y: number;
@@ -44,15 +45,14 @@ export default function ParticleBackground() {
       color: string;
 
       constructor() {
-        this.x = Math.random() * (canvas!.width - size * 2) + size * 2;
-        this.y = Math.random() * (canvas!.height - size * 2) + size * 2;
-        this.directionX = Math.random() * 2 - 1; // ความเร็ว X (-1 ถึง 1)
-        this.directionY = Math.random() * 2 - 1; // ความเร็ว Y
-        this.size = Math.random() * 2 + 1; // ขนาด 1-3px
-        this.color = "#8b5cf6"; // สีม่วงอ่อนๆ
+        this.size = Math.random() * 2 + 1;
+        this.x = Math.random() * (canvas!.width - this.size * 2) + this.size * 2;
+        this.y = Math.random() * (canvas!.height - this.size * 2) + this.size * 2;
+        this.directionX = Math.random() * 2 - 1;
+        this.directionY = Math.random() * 2 - 1;
+        this.color = "#8b5cf6";
       }
 
-      // วาดจุด
       draw() {
         if (!ctx) return;
         ctx.beginPath();
@@ -61,17 +61,13 @@ export default function ParticleBackground() {
         ctx.fill();
       }
 
-      // คำนวณการเคลื่อนที่
       update() {
-        // ชนขอบแล้วเด้งกลับ
         if (this.x > canvas!.width || this.x < 0) this.directionX = -this.directionX;
         if (this.y > canvas!.height || this.y < 0) this.directionY = -this.directionY;
 
-        // เคลื่อนที่
-        this.x += this.directionX * 0.4; // ปรับความเร็วตรงนี้ (0.4 คือช้าๆ นุ่มๆ)
+        this.x += this.directionX * 0.4;
         this.y += this.directionY * 0.4;
 
-        // Interactive: ถ้าเมาส์อยู่ใกล้ ให้ขยายขนาดนิดนึง
         const dx = mouse.x - this.x;
         const dy = mouse.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -86,17 +82,14 @@ export default function ParticleBackground() {
       }
     }
 
-    // สร้าง Particle จำนวนมาก
     function init() {
       particlesArray = [];
-      // จำนวน Particle ตามขนาดจอ (จอกว้าง = เยอะ)
       const numberOfParticles = (canvas!.width * canvas!.height) / 15000;
       for (let i = 0; i < numberOfParticles; i++) {
         particlesArray.push(new Particle());
       }
     }
 
-    // ลากเส้นเชื่อมจุด
     function connect() {
       let opacityValue = 1;
       for (let a = 0; a < particlesArray.length; a++) {
@@ -107,11 +100,10 @@ export default function ParticleBackground() {
             (particlesArray[a].y - particlesArray[b].y) *
               (particlesArray[a].y - particlesArray[b].y);
 
-          // ถ้าใกล้กัน ให้ลากเส้น
           if (distance < (canvas!.width / 7) * (canvas!.height / 7)) {
             opacityValue = 1 - distance / 20000;
             if (!ctx) return;
-            ctx.strokeStyle = `rgba(140, 100, 255, ${opacityValue})`; // สีเส้น (ม่วงจางๆ)
+            ctx.strokeStyle = `rgba(140, 100, 255, ${opacityValue})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
@@ -120,13 +112,12 @@ export default function ParticleBackground() {
           }
         }
         
-        // ลากเส้นหาเมาส์ด้วย
         const dx = mouse.x - particlesArray[a].x;
         const dy = mouse.y - particlesArray[a].y;
         const distanceMouse = dx*dx + dy*dy;
         if (distanceMouse < mouse.radius * mouse.radius * 2) {
              if (!ctx) return;
-             ctx.strokeStyle = `rgba(255, 255, 255, ${0.2})`; // เส้นหาเมาส์สีขาวจางๆ
+             ctx.strokeStyle = `rgba(255, 255, 255, 0.2)`;
              ctx.beginPath();
              ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
              ctx.lineTo(mouse.x, mouse.y);
@@ -135,9 +126,9 @@ export default function ParticleBackground() {
       }
     }
 
-    // ลูปอนิเมชั่น
     function animate() {
-      requestAnimationFrame(animate);
+      // ✅ จุดที่ 3: เก็บค่า ID จาก requestAnimationFrame ไว้ที่นี่
+      animationFrameId = requestAnimationFrame(animate);
       if (!ctx || !canvas) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -153,7 +144,8 @@ export default function ParticleBackground() {
 
     return () => {
       window.removeEventListener("resize", resizeCanvas);
-      window.removeEventListener("mousemove", () => {});
+      window.removeEventListener("mousemove", handleMouseMove);
+      // ✅ ตอนนี้ animationFrameId จะมีค่าแน่นอนแล้ว
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
@@ -166,6 +158,3 @@ export default function ParticleBackground() {
     />
   );
 }
-
-// ตัวแปรขนาดเริ่มต้น (ไว้นอก class เพื่อเลี่ยง error ts)
-const size = 1;
