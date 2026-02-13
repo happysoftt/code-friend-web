@@ -5,6 +5,7 @@ import AdminSidebar from "./AdminSidebar"; // Import Client Component ที่�
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
+  console.log("DEBUG - USER ROLE IN SESSION:", session?.user?.role);
   console.log("Current User Session:", session?.user);
   // เช็คสิทธิ์: ต้องเป็น ADMIN เท่านั้น
   if (!session || session.user.role !== "ADMIN") {
