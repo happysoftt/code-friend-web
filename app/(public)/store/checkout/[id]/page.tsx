@@ -30,7 +30,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   if (!product) return notFound();
 
   // --- กรณีสินค้าฟรี (Special View) ---
-  if (product.isFree || product.price === 0) {
+  // ✅ แก้ไขตรงนี้: แปลง Decimal เป็น Number ก่อนเปรียบเทียบ
+  if (product.isFree || Number(product.price) === 0) {
       return (
           <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 selection:bg-green-500/30 font-sans relative overflow-hidden">
               {/* Background Glows */}
