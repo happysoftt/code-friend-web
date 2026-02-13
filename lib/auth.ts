@@ -100,41 +100,33 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  callbacks: {
-    async signIn({ user }) {
-      // Check if user is active before allowing sign in
-      if (user.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        });
-        if (dbUser && !dbUser.isActive) {
-          return false; 
-        }
-      }
-      return true;
-    },
-async jwt({ token, user, trigger, session }) {
+ callbacks: {
+    async jwt({ token, user, trigger, session }) {
       // 1. เก็บค่าพื้นฐานตอนล็อกอิน
       if (user) {
         token.id = user.id;
         token.role = user.role || "USER";
+        token.roleId = user.roleId;
       }
 
-      // 2. ถ้า Role หาย ให้ไปดึงจาก DB
-      if (!token.role && token.email) {
+      // 2. ถ้า Role หาย ให้ไปดึงจาก DB เสมอ (เพื่อความชัวร์)
+      if (token.email) {
         const dbUser = await prisma.user.findUnique({
            where: { email: token.email },
            include: { role: true }
         });
+        
         if (dbUser) {
            token.id = dbUser.id;
            token.role = dbUser.role?.name || "USER";
+           token.roleId = dbUser.roleId;
         }
-      }
 
-      // 🔥 3. ไม้ตาย: บังคับให้เมลของคุณเป็น ADMIN เท่านั้น! (แก้ตรงนี้จบแน่นอน)
-      if (token.email === "happymumt01@gmail.com") {
-         token.role = "ADMIN";
+        // 🔥 3. ไม้ตาย: บังคับให้อีเมลของคุณเป็น ADMIN (แก้ให้ตรงกับรูปภาพแล้ว)
+        if (token.email === "klolo20221@gmail.com") {
+           token.role = "ADMIN";
+           // หมายเหตุ: ตรงนี้ระบบจะใช้ role name เป็นหลักในการตรวจสอบสิทธิ์
+        }
       }
 
       // 4. รองรับการอัปเดต Profile
@@ -151,7 +143,9 @@ async jwt({ token, user, trigger, session }) {
         // @ts-ignore
         session.user.id = token.id as string;
         // @ts-ignore
-        session.user.role = token.role as string; // จะได้ค่า ADMIN มาจากข้อ 3 ด้านบน
+        session.user.role = token.role as string;
+        // @ts-ignore
+        session.user.roleId = token.roleId as string;
       }
       return session;
     },
