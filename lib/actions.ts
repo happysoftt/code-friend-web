@@ -996,13 +996,14 @@ export async function createComment(data: {
     // 2. ระบบแจ้งเตือน (ตัวอย่างสำหรับ Snippet)
     if (snippetId) {
         const snippet = await prisma.snippet.findUnique({ where: { id: snippetId } });
-        if (snippet && snippet.userId !== session.user.id) {
+        // ✅ แก้ไขตรงนี้: เปลี่ยนจาก userId เป็น authorId
+        if (snippet && snippet.authorId !== session.user.id) {
           await prisma.notification.create({
             data: {
               type: "COMMENT",
               message: `${session.user.name} คอมเมนต์ในโค้ดของคุณ: "${content.substring(0, 20)}..."`,
               link: `/snippets/${snippet.slug}`,
-              userId: snippet.userId,
+              userId: snippet.authorId, // ✅ เปลี่ยนตรงนี้ด้วย
             },
           });
         }
@@ -1014,12 +1015,11 @@ export async function createComment(data: {
         data: { xp: { increment: 10 } },
     });
 
-    // 4. ✅ ล้าง Cache เพื่อให้คอมเมนต์ใหม่แสดงผลทันที
+    // 4. ล้าง Cache เพื่อให้คอมเมนต์ใหม่แสดงผลทันที
     if (showcaseId) revalidatePath(`/showcase/${showcaseId}`);
     if (articleId) revalidatePath(`/articles/${articleId}`);
     if (snippetId) revalidatePath(`/snippets/${snippetId}`);
     
-    // สำหรับคอร์สเรียน ต้องค้นหา Slug มาเพื่อ revalidate path ให้ถูกต้อง
     if (learningPathId) {
         const course = await prisma.learningPath.findUnique({ 
             where: { id: learningPathId },
