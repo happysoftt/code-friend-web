@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Video } from "lucide-react";
 import Link from "next/link";
-import EditLessonForm from "@/components/admin/EditLessonForm"; // Import Form
+import EditLessonForm from "@/components/admin/EditLessonForm"; 
 
 export default async function EditLessonPage({ params }: { params: Promise<{ id: string, lessonId: string }> }) {
   const { id: courseId, lessonId } = await params;
@@ -36,8 +36,15 @@ export default async function EditLessonPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      {/* Client Form */}
-      <EditLessonForm initialData={{...lesson, courseId}} />
+      {/* ✅ แก้ไขตรงนี้: แปลง null ให้เป็น "" (ข้อความว่าง) */}
+      <EditLessonForm 
+        initialData={{
+            ...lesson,
+            videoUrl: lesson.videoUrl ?? "", // ถ้าเป็น null ให้ใส่ ""
+            content: lesson.content ?? "",   // กันเหนียวไว้สำหรับ content ด้วย
+            courseId
+        }} 
+      />
       
     </div>
   );
