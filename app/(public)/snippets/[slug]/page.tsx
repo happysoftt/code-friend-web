@@ -4,27 +4,31 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MessageSquare, Calendar, Eye } from "lucide-react";
 import CommentSection from "@/components/shared/CommentSection";
-import CodeBlock from "@/components/snippet/CodeBlock"; // Import Component ที่เพิ่งสร้าง
+import CodeBlock from "@/components/snippet/CodeBlock"; 
 
 export const dynamic = 'force-dynamic';
 
 export default async function SnippetDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  // ดึงข้อมูล Snippet (ปรับตาม Schema จริงของคุณ)
-  // สมมติว่า code อยู่ใน model Snippet เลย ไม่ได้แยก Version
+  // 1. ดึงข้อมูล Snippet พร้อม Version ล่าสุด
   const snippet = await prisma.snippet.findUnique({
     where: { slug },
     include: { 
         author: true, 
+        // ✅ เพิ่มส่วนนี้: ดึง Versions ล่าสุดมา 1 อัน
+        versions: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
+        },
         comments: { include: { user: true }, orderBy: { createdAt: "desc" } } 
     }
   });
 
   if (!snippet) return notFound();
   
-  // โค้ด
-  const codeContent = snippet.code || "// No code available"; 
+  // ✅ แก้ไข: ดึง code จาก versions ตัวแรก (ตัวล่าสุด)
+  const codeContent = snippet.versions[0]?.code || "// No code available"; 
 
   return (
     <div className="min-h-screen bg-[#020617] text-white py-12 selection:bg-green-500/30 font-sans">
@@ -81,7 +85,6 @@ export default async function SnippetDetailPage({ params }: { params: Promise<{ 
         
         {/* Comments Section */}
         
-            
             <CommentSection 
                 comments={snippet.comments} 
                 snippetId={snippet.id} 
