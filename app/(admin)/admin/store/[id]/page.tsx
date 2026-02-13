@@ -7,12 +7,15 @@ import Image from "next/image";
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  
+  // 1. ดึงข้อมูลสินค้า
   const product = await prisma.product.findUnique({ where: { id } });
 
   if (!product) return notFound();
 
   async function updateProductAction(formData: FormData) {
     "use server";
+    // เรียกใช้ Server Action หลัก (ต้องมั่นใจว่าใน lib/actions.ts รับค่า 'title' ไม่ใช่ 'name')
     await updateProduct(formData);
     redirect("/admin/store");
   }
@@ -23,7 +26,8 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         <ArrowLeft size={16} className="mr-1" /> กลับไปหน้ารายการ
       </Link>
 
-      <h1 className="text-3xl font-bold text-white mb-8">แก้ไขสินค้า: {product.name}</h1>
+      {/* ✅ แก้จุดที่ 1: ใช้ product.title */}
+      <h1 className="text-3xl font-bold text-white mb-8">แก้ไขสินค้า: {product.title}</h1>
       
       <form action={updateProductAction} className="bg-slate-900 p-8 rounded-2xl border border-slate-800 space-y-6">
         <input type="hidden" name="id" value={product.id} />
@@ -48,9 +52,15 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
         <div className="border-t border-slate-800 my-4"></div>
 
+        {/* ✅ แก้จุดที่ 2: เปลี่ยน name="name" เป็น name="title" และ defaultValue เป็น product.title */}
         <div>
           <label className="block text-slate-400 mb-2 text-sm">ชื่อสินค้า</label>
-          <input name="name" defaultValue={product.name} required className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:border-blue-500 outline-none" />
+          <input 
+            name="title" 
+            defaultValue={product.title} 
+            required 
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:border-blue-500 outline-none" 
+          />
         </div>
 
         <div>
@@ -60,13 +70,14 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
         <div>
           <label className="block text-slate-400 mb-2 text-sm">ราคา (บาท)</label>
-          {/* แก้ไขตรงนี้: เติม .toString() */}
           <input 
             name="price" 
             type="number" 
+            // แปลง Decimal เป็น String เพื่อใส่ใน input
             defaultValue={product.price.toString()} 
             required 
-            min="0" 
+            min="0"
+            step="0.01" 
             className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-green-400 font-bold text-lg focus:border-green-500 outline-none" 
           />
         </div>
