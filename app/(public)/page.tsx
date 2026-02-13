@@ -44,17 +44,23 @@ export default async function HomePage() {
     prisma.showcase.findMany({ where: { approved: true }, take: 2, orderBy: { createdAt: "desc" }, include: { user: true } }),
     // Leaderboard (5 อันดับแรก)
     prisma.user.findMany({ take: 5, orderBy: { xp: 'desc' }, select: { id: true, name: true, image: true, xp: true, level: true } }),
-    // Articles (3 บทความ)
-    prisma.article.findMany({ where: { published: true }, take: 3, orderBy: { createdAt: "desc" }, include: { author: true }, include: { category: true } }) // *แก้ include category ให้ถูกต้องตาม schema ถ้ามี
+    // Articles (3 บทความ) - ✅ แก้ไขตรงนี้ รวม include ไว้ด้วยกัน
+    prisma.article.findMany({ 
+      where: { published: true }, 
+      take: 3, 
+      orderBy: { createdAt: "desc" }, 
+      include: { 
+        author: true, 
+        category: true 
+      } 
+    }) 
   ]);
 
   return (
     
     <div className="min-h-screen bg-[#020617] text-white selection:bg-purple-500/30 font-sans">
       <AnnouncementBar />
-      {/* =========================================
-          HERO SECTION: พื้นที่ต้อนรับสุดอลังการ
-         ========================================= */}
+ 
       <section className="relative pt-32 pb-20 overflow-hidden min-h-[90vh] flex flex-col justify-center items-center">
          <AnimatedBackground />
          <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
@@ -290,55 +296,55 @@ export default async function HomePage() {
 
                   {/* Right Column: Articles & Leaderboard */}
                   <div className="space-y-8">
-                       {/* Leaderboard Widget */}
-                       <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 backdrop-blur-sm">
-                          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                              <span className="text-yellow-400"><Sparkles size={18} /></span> Top Developers
-                          </h3>
-                          <div className="space-y-3">
-                              {topUsers.map((user, index) => (
-                                  <div key={user.id} className="flex items-center gap-3 p-2.5 bg-slate-800/50 rounded-xl border border-slate-700/30">
-                                      <div className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold ${
-                                          index === 0 ? 'bg-yellow-500 text-black' : 
-                                          index === 1 ? 'bg-slate-300 text-black' : 
-                                          index === 2 ? 'bg-orange-700 text-white' : 'bg-slate-700 text-slate-400'
-                                      }`}>
-                                          {index + 1}
-                                      </div>
-                                      <div className="w-8 h-8 rounded-full bg-slate-700 overflow-hidden relative border border-slate-600">
-                                          {user.image && <Image src={user.image} alt="" fill className="object-cover" />}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                          <p className="text-white text-xs font-bold truncate">{user.name}</p>
-                                          <p className="text-[10px] text-slate-500">Lvl {user.level}</p>
-                                      </div>
-                                      <div className="text-right">
-                                          <p className="text-yellow-400 text-xs font-bold">{user.xp}</p>
-                                      </div>
-                                  </div>
-                              ))}
-                              {topUsers.length === 0 && <p className="text-center text-slate-500 text-sm">รอการจัดอันดับ</p>}
-                          </div>
-                          <Link href="/leaderboard" className="block w-full text-center py-2.5 mt-4 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-white transition-colors">
-                              ดูอันดับทั้งหมด
-                          </Link>
-                       </div>
+                        {/* Leaderboard Widget */}
+                        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 backdrop-blur-sm">
+                           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                               <span className="text-yellow-400"><Sparkles size={18} /></span> Top Developers
+                           </h3>
+                           <div className="space-y-3">
+                               {topUsers.map((user, index) => (
+                                   <div key={user.id} className="flex items-center gap-3 p-2.5 bg-slate-800/50 rounded-xl border border-slate-700/30">
+                                       <div className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold ${
+                                           index === 0 ? 'bg-yellow-500 text-black' : 
+                                           index === 1 ? 'bg-slate-300 text-black' : 
+                                           index === 2 ? 'bg-orange-700 text-white' : 'bg-slate-700 text-slate-400'
+                                       }`}>
+                                           {index + 1}
+                                       </div>
+                                       <div className="w-8 h-8 rounded-full bg-slate-700 overflow-hidden relative border border-slate-600">
+                                           {user.image && <Image src={user.image} alt="" fill className="object-cover" />}
+                                       </div>
+                                       <div className="flex-1 min-w-0">
+                                           <p className="text-white text-xs font-bold truncate">{user.name}</p>
+                                           <p className="text-[10px] text-slate-500">Lvl {user.level}</p>
+                                       </div>
+                                       <div className="text-right">
+                                           <p className="text-yellow-400 text-xs font-bold">{user.xp}</p>
+                                       </div>
+                                   </div>
+                               ))}
+                               {topUsers.length === 0 && <p className="text-center text-slate-500 text-sm">รอการจัดอันดับ</p>}
+                           </div>
+                           <Link href="/leaderboard" className="block w-full text-center py-2.5 mt-4 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-white transition-colors">
+                               ดูอันดับทั้งหมด
+                           </Link>
+                        </div>
 
-                       {/* Articles Widget */}
-                       <div>
-                          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                              <span className="text-blue-400"><PenTool size={18} /></span> อ่านล่าสุด
-                          </h3>
-                          <div className="space-y-4">
-                              {articles.map(article => (
-                                  <Link key={article.id} href={`/articles/${article.slug}`} className="block group">
-                                      <h4 className="text-sm font-bold text-slate-300 group-hover:text-blue-400 transition-colors line-clamp-1">{article.title}</h4>
-                                      <p className="text-xs text-slate-500 mt-1">{new Date(article.createdAt).toLocaleDateString()}</p>
-                                  </Link>
-                              ))}
-                              {articles.length === 0 && <p className="text-slate-500 text-sm">ยังไม่มีบทความ</p>}
-                          </div>
-                       </div>
+                        {/* Articles Widget */}
+                        <div>
+                           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                               <span className="text-blue-400"><PenTool size={18} /></span> อ่านล่าสุด
+                           </h3>
+                           <div className="space-y-4">
+                               {articles.map(article => (
+                                   <Link key={article.id} href={`/articles/${article.slug}`} className="block group">
+                                       <h4 className="text-sm font-bold text-slate-300 group-hover:text-blue-400 transition-colors line-clamp-1">{article.title}</h4>
+                                       <p className="text-xs text-slate-500 mt-1">{new Date(article.createdAt).toLocaleDateString()}</p>
+                                   </Link>
+                               ))}
+                               {articles.length === 0 && <p className="text-slate-500 text-sm">ยังไม่มีบทความ</p>}
+                           </div>
+                        </div>
                   </div>
               </div>
           </div>
