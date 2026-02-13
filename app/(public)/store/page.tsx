@@ -125,7 +125,7 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
                                 <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase tracking-wider flex items-center gap-1">
                                     <Check size={10} strokeWidth={4} /> Owned
                                 </span>
-                            ) : product.isFree || product.price === 0 ? (
+                            ) : product.isFree || Number(product.price) === 0 ? (
                                 <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase tracking-wider flex items-center gap-1">
                                     <Sparkles size={10} /> Free
                                 </span>
@@ -166,8 +166,8 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
                                 ) : (
                                     <>
                                         <span className="text-[10px] text-slate-500 uppercase font-bold">Price</span>
-                                        <span className={`font-mono text-lg font-bold ${product.isFree || product.price === 0 ? 'text-emerald-400' : 'text-white'}`}>
-                                            {product.isFree || product.price === 0 ? "Free" : `฿${Number(product.price).toLocaleString()}`}
+                                        <span className={`font-mono text-lg font-bold ${product.isFree || Number(product.price) === 0 ? 'text-emerald-400' : 'text-white'}`}>
+                                            {product.isFree || Number(product.price) === 0 ? "Free" : `฿${Number(product.price).toLocaleString()}`}
                                         </span>
                                     </>
                                 )}
