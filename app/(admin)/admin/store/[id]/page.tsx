@@ -12,7 +12,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     where: { id },
     include: {
       profile: true,
-      role: true, // ✅ ต้อง Include role เข้ามาด้วย
+      role: true, // ✅ จุดที่ 1: ต้องสั่งดึงตาราง Role มาด้วย
       articles: {
         orderBy: { createdAt: 'desc' },
         take: 5
@@ -57,7 +57,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 </p>
                 
                 <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-6">
-                    {/* ✅ แก้ไข: เรียกใช้ user.role.name แทน user.role */}
+                    {/* ✅ จุดที่ 2: เรียกใช้ user.role.name แทน user.role เพียวๆ */}
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${user.role?.name === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                         <Shield size={12} /> {user.role?.name || "MEMBER"}
                     </span>
@@ -98,7 +98,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
       
-      {/* Recent Activity (Optional Layout) */}
+      {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
          {/* Orders */}
          <div>
