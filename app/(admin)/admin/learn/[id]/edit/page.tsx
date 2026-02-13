@@ -2,12 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { ArrowLeft, GraduationCap } from "lucide-react";
 import Link from "next/link";
-import EditCourseForm from "@/components/admin/EditCourseForm"; // Import Form ที่เราเพิ่งสร้าง
+import EditCourseForm from "@/components/admin/EditCourseForm"; 
 
 export default async function EditCoursePage({ params }: { params: Promise<{ id: string }> }) {
+  // 1. รอ params เพื่อเอา id (Next.js 15+)
   const { id } = await params;
 
-  // 1. ดึงข้อมูลคอร์สเดิม
+  // 2. ดึงข้อมูลคอร์สเดิม
   const course = await prisma.learningPath.findUnique({
     where: { id },
   });
@@ -33,8 +34,13 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      {/* เรียกใช้ Client Form Component พร้อมส่งข้อมูลเดิมไปให้ */}
-      <EditCourseForm initialData={course} />
+      {/* ✅ แก้ไขตรงนี้: แปลง thumbnail เป็น image */}
+      <EditCourseForm 
+        initialData={{
+            ...course,           // เอาข้อมูลอื่นมาหมด (id, title, description, etc.)
+            image: course.thumbnail // ✅ แปลงร่าง: เอาค่าจาก thumbnail มาใส่ใน image
+        }} 
+      />
       
     </div>
   );
