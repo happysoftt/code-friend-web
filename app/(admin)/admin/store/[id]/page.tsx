@@ -1,124 +1,139 @@
 import { prisma } from "@/lib/prisma";
-import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Package, Save } from "lucide-react";
+import { notFound } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
-import { updateProduct } from "@/lib/actions"; // อย่าลืม import server action (หรือเขียน inline ก็ได้)
+import { ArrowLeft, Mail, Calendar, Shield, Package, FileText, User as UserIcon } from "lucide-react";
 
-export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  // 1. ดึงข้อมูลสินค้า
-  const product = await prisma.product.findUnique({
+  // 1. ดึงข้อมูล User พร้อม Relation ที่เกี่ยวข้อง
+  const user = await prisma.user.findUnique({
     where: { id },
+    include: {
+      profile: true,
+      role: true, // ✅ ต้อง Include role เข้ามาด้วย
+      articles: {
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      },
+      orders: {
+        include: { product: true },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      }
+    }
   });
 
-  if (!product) return notFound();
-
-  // 2. Server Action สำหรับอัปเดต
-  async function updateProductAction(formData: FormData) {
-    "use server";
-    const id = formData.get("id") as string;
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const price = parseFloat(formData.get("price") as string);
-    const isFree = formData.get("isFree") === "on";
-    const isActive = formData.get("isActive") === "on";
-
-    await prisma.product.update({
-        where: { id },
-        data: {
-            title,        // ✅ ใช้ title
-            description,
-            price,
-            isFree,
-            isActive
-        }
-    });
-
-    redirect("/admin/store");
-  }
+  if (!user) return notFound();
 
   return (
-    <div className="p-8 max-w-4xl mx-auto min-h-screen">
+    <div className="p-8 max-w-5xl mx-auto min-h-screen">
       
       {/* Header */}
-      <div className="mb-8">
-        <Link href="/admin/store" className="inline-flex items-center text-slate-400 hover:text-white mb-4 text-sm transition-colors group">
-            <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" /> กลับไปจัดการสินค้า
-        </Link>
-        <div className="flex items-center gap-3">
-            <div className="p-3 bg-pink-500/10 rounded-xl text-pink-500 border border-pink-500/20">
-                <Package size={24} />
+      <Link href="/admin/users" className="inline-flex items-center text-slate-400 hover:text-white mb-6 text-sm transition-colors group">
+        <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" /> กลับไปรายชื่อผู้ใช้
+      </Link>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl mb-8">
+        <div className="h-32 bg-gradient-to-r from-blue-900 to-slate-900"></div>
+        <div className="px-8 pb-8">
+            <div className="relative flex justify-between items-end -mt-12 mb-6">
+                <div className="relative w-24 h-24 rounded-full border-4 border-slate-900 overflow-hidden bg-slate-800">
+                    {user.image ? (
+                        <Image src={user.image} alt={user.name || "User"} fill className="object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-500">
+                            <UserIcon size={40} />
+                        </div>
+                    )}
+                </div>
             </div>
-            <div>
-                {/* ✅ แก้ไขจุดที่ Error: เปลี่ยน name เป็น title */}
-                <h1 className="text-3xl font-bold text-white tracking-tight">แก้ไขสินค้า: {product.title}</h1>
-                <p className="text-slate-400 text-sm">รหัสสินค้า: {product.slug}</p>
+
+            <div className="text-center md:text-left">
+                <h1 className="text-3xl font-bold text-white mb-1">{user.name}</h1>
+                <p className="text-slate-400 flex items-center gap-2 justify-center md:justify-start mb-6">
+                    <Mail size={14} /> {user.email}
+                </p>
+                
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-6">
+                    {/* ✅ แก้ไข: เรียกใช้ user.role.name แทน user.role */}
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${user.role?.name === 'ADMIN' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                        <Shield size={12} /> {user.role?.name || "MEMBER"}
+                    </span>
+                    
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${user.isActive ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                        {user.isActive ? "Active" : "Inactive"}
+                    </span>
+
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1">
+                        <Calendar size={12} /> เข้าร่วมเมื่อ {user.createdAt.toLocaleDateString('th-TH')}
+                    </span>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-6 border-t border-slate-800">
+                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                        <p className="text-slate-500 text-xs uppercase font-bold mb-1">บทความ</p>
+                        <p className="text-2xl font-bold text-white flex items-center gap-2">
+                             <FileText className="text-blue-500" size={20} /> {user.articles.length}
+                        </p>
+                    </div>
+                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                        <p className="text-slate-500 text-xs uppercase font-bold mb-1">คำสั่งซื้อ</p>
+                        <p className="text-2xl font-bold text-white flex items-center gap-2">
+                             <Package className="text-emerald-500" size={20} /> {user.orders.length}
+                        </p>
+                    </div>
+                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                        <p className="text-slate-500 text-xs uppercase font-bold mb-1">Level / XP</p>
+                        <p className="text-2xl font-bold text-white flex items-center gap-2">
+                             <span className="text-yellow-500 text-lg">LV.{user.level}</span>
+                             <span className="text-slate-600 text-sm">/ {user.xp} XP</span>
+                        </p>
+                    </div>
+                </div>
+
             </div>
         </div>
       </div>
-
-      <form action={updateProductAction} className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
-        <input type="hidden" name="id" value={product.id} />
-
-        {/* Title Input */}
-        <div>
-            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">ชื่อสินค้า</label>
-            <input 
-                name="title" // ✅ ต้องส่งชื่อ field เป็น title
-                defaultValue={product.title} // ✅ เปลี่ยนจาก name เป็น title
-                required 
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-lg font-bold text-white placeholder-slate-600 focus:outline-none focus:border-pink-500 transition-all" 
-            />
-        </div>
-
-        {/* Description Input */}
-        <div>
-            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">รายละเอียด</label>
-            <textarea 
-                name="description" 
-                defaultValue={product.description} 
-                rows={4}
-                required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-300 focus:outline-none focus:border-pink-500 transition-all resize-none" 
-            />
-        </div>
-
-        {/* Price & Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">ราคา (บาท)</label>
-                <input 
-                    type="number"
-                    name="price"
-                    step="0.01" 
-                    defaultValue={Number(product.price)} 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white focus:outline-none focus:border-pink-500 transition-all" 
-                />
+      
+      {/* Recent Activity (Optional Layout) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+         {/* Orders */}
+         <div>
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Package className="text-emerald-500" /> คำสั่งซื้อล่าสุด</h2>
+            <div className="space-y-3">
+                {user.orders.length > 0 ? user.orders.map(order => (
+                    <div key={order.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+                        <div>
+                             <p className="text-white font-bold text-sm">{order.product.title}</p>
+                             <p className="text-slate-500 text-xs">{order.createdAt.toLocaleDateString('th-TH')}</p>
+                        </div>
+                        <span className="text-emerald-400 font-mono font-bold">฿{Number(order.total).toLocaleString()}</span>
+                    </div>
+                )) : (
+                    <p className="text-slate-500 text-sm">ไม่มีประวัติคำสั่งซื้อ</p>
+                )}
             </div>
-            
-            <div className="flex flex-col gap-4 justify-center p-4 bg-slate-950/50 rounded-xl border border-slate-800">
-                <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" name="isFree" defaultChecked={product.isFree} className="w-5 h-5 accent-pink-500" />
-                    <span className="text-white">แจกฟรี (Free Product)</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" name="isActive" defaultChecked={product.isActive} className="w-5 h-5 accent-green-500" />
-                    <span className="text-white">วางขาย / เผยแพร่ (Active)</span>
-                </label>
+         </div>
+
+         {/* Articles */}
+         <div>
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><FileText className="text-blue-500" /> บทความล่าสุด</h2>
+            <div className="space-y-3">
+                {user.articles.length > 0 ? user.articles.map(article => (
+                    <div key={article.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                        <p className="text-white font-bold text-sm truncate">{article.title}</p>
+                        <p className="text-slate-500 text-xs mt-1">{new Date(article.createdAt).toLocaleDateString('th-TH')}</p>
+                    </div>
+                )) : (
+                    <p className="text-slate-500 text-sm">ยังไม่มีบทความ</p>
+                )}
             </div>
-        </div>
+         </div>
+      </div>
 
-        <div className="pt-4 border-t border-slate-800">
-            <button 
-                type="submit" 
-                className="w-full bg-pink-600 hover:bg-pink-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-pink-900/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-                <Save size={20} /> บันทึกการแก้ไข
-            </button>
-        </div>
-
-      </form>
     </div>
   );
 }
