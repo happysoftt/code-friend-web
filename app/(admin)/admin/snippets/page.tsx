@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Image from "next/image";
 import Link from "next/link";
 import { Code2, Search, FileCode } from "lucide-react";
-import SnippetActions from "@/components/admin/SnippetActions"; // Import ปุ่มที่สร้าง
+import SnippetActions from "@/components/admin/SnippetActions"; 
 
 export const dynamic = 'force-dynamic';
 
@@ -18,15 +18,21 @@ export default async function AdminSnippetPage({ searchParams }: { searchParams:
   if (q) {
     whereCondition.OR = [
         { title: { contains: q, mode: 'insensitive' } },
-        { user: { name: { contains: q, mode: 'insensitive' } } } // หรือ author
+        { author: { name: { contains: q, mode: 'insensitive' } } }
     ];
   }
 
-  // ดึง Snippet
+  // ✅ แก้ไขจุดที่ 1: ดึง versions ล่าสุดมาด้วย
   const snippets = await prisma.snippet.findMany({
     where: whereCondition,
     orderBy: { createdAt: "desc" },
-    include: { author: true } // ตรวจสอบว่า relation ชื่อ author หรือ user
+    include: { 
+        author: true,
+        versions: { // สั่งให้ดึง Version ล่าสุดออกมา 1 อัน
+            orderBy: { createdAt: 'desc' },
+            take: 1
+        }
+    } 
   });
 
   return (
@@ -88,10 +94,11 @@ export default async function AdminSnippetPage({ searchParams }: { searchParams:
                  <div className="flex justify-between items-start">
                      <div className="flex items-center gap-3 min-w-0">
                          <div className="w-10 h-10 rounded-full bg-slate-800 overflow-hidden relative border border-slate-700 flex-shrink-0">
-                            <Image 
-                                src={item.author.image || `https://ui-avatars.com/api/?name=${item.author.name}`} 
-                                alt="Author" fill className="object-cover" 
-                            />
+                            {item.author.image ? (
+                                <Image src={item.author.image} alt="Author" fill className="object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-slate-700 flex items-center justify-center text-xs font-bold">{item.author.name?.charAt(0)}</div>
+                            )}
                          </div>
                          <div className="min-w-0">
                              <h3 className="font-bold text-white truncate text-base group-hover:text-blue-400 transition-colors" title={item.title}>{item.title}</h3>
@@ -113,12 +120,12 @@ export default async function AdminSnippetPage({ searchParams }: { searchParams:
                         {item.language || "text"}
                      </div>
                      <pre className="text-xs text-slate-400 font-mono line-clamp-4 overflow-hidden leading-relaxed opacity-80">
-                         {item.content || "// No code content available..."}
+                         {/* ✅ แก้ไขจุดที่ 2: ดึง code จาก versions ตัวแรกแทน content */}
+                         {item.versions[0]?.code || "// No code content available..."}
                      </pre>
                      <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-950 to-transparent"></div>
                  </div>
-                
-                
+                 
                  {/* Footer & Actions */}
                  <div className="flex justify-between items-center mt-auto pt-2">
                      <Link href={`/snippets/${item.slug}`} target="_blank" className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors">
