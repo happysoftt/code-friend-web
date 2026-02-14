@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma), // กลับมาใช้ Adapter มาตรฐาน
+  adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
   },
@@ -31,6 +31,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error("กรุณากรอกอีเมลและรหัสผ่าน");
         }
 
+        // ค้นหาผู้ใช้ในระบบ
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
           include: { role: true },
@@ -50,7 +51,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!user.isActive) {
-           throw new Error("บัญชีถูกระงับ");
+          throw new Error("บัญชีถูกระงับ");
         }
 
         return {
@@ -59,45 +60,40 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           image: user.image,
           role: user.role?.name || "USER",
-          roleId: user.roleId,
+          roleId: user.roleId || "", // ป้องกันค่า null
         };
       },
     }),
   ],
-callbacks: {
+  callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // 1. ถ้า login ครั้งแรก
-      if (user) {
-        token.id = user.id;
-      }
-
-      // 2. ถ้ามีการอัปเดต profile
+      // กรณีมีการอัปเดตข้อมูลผู้ใช้ (Update Profile)
       if (trigger === "update" && session?.name) {
         token.name = session.name;
       }
 
-      // 3. 🔥 ไม้ตาย: บังคับให้เมล์นี้เป็น ADMIN ทันที (ไม่ต้องรอ Database)
-      // ใส่บรรทัดนี้ไว้ก่อนเรียก prisma เพื่อความชัวร์
-      if (token.email === "klolo20221@gmail.com") {
-         token.role = "ADMIN"; 
-         return token; // ส่งค่ากลับเลย ไม่ต้องไป query ให้เสียเวลา
+      // กรณีล็อกอินครั้งแรก (Initial Sign In)
+      if (user) {
+        token.id = user.id;
+        // @ts-ignore
+        token.role = user.role;
       }
 
-      // 4. สำหรับ user คนอื่น ค่อยไปดึงจาก DB ตามปกติ
+      // ตรวจสอบสิทธิ์ล่าสุดจาก Database เสมอ (สำคัญมากสำหรับการเปลี่ยน Role)
       if (token.email) {
         try {
-            const dbUser = await prisma.user.findUnique({
-                where: { email: token.email },
-                include: { role: true },
-            });
-    
-            if (dbUser) {
-                token.id = dbUser.id;
-                // @ts-ignore
-                token.role = dbUser.role?.name || "USER";
-            }
+          const dbUser = await prisma.user.findUnique({
+            where: { email: token.email },
+            include: { role: true },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            // @ts-ignore
+            token.role = dbUser.role?.name || "USER";
+          }
         } catch (error) {
-            console.log("Error fetching user role:", error);
+          console.error("Error refreshing user role:", error);
         }
       }
 
@@ -106,13 +102,14 @@ callbacks: {
 
     async session({ session, token }) {
       if (session.user) {
+        // ส่งต่อข้อมูล ID และ Role ไปยังฝั่ง Client
         // @ts-ignore
         session.user.id = token.id;
         // @ts-ignore
-        session.user.role = token.role; // รับค่ามาจาก JWT ด้านบน
+        session.user.role = token.role;
       }
       return session;
     },
-},
+  },
   secret: process.env.NEXTAUTH_SECRET,
 };
