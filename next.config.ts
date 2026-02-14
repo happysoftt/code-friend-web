@@ -2,24 +2,26 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // อนุญาตให้ใช้รูป SVG (เช่นรูปจาก ui-avatars)
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**", // อนุญาตทุกเว็บ
+        hostname: "utfs.io", // ✅ UploadThing (เพิ่มเพื่อความชัวร์)
       },
       {
-        protocol: "http",
-        hostname: "**",
+        protocol: "https",
+        hostname: "ui-avatars.com", // ✅ UI Avatars (รูปโปรไฟล์)
+      },
+      {
+        protocol: "https",
+        hostname: "**", // ✅ อันเดิมของคุณ (อนุญาตทุกเว็บ)
       },
     ],
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '100mb', // เพิ่มขนาดไฟล์อัปโหลด
+      bodySizeLimit: '100mb',
     },
   },
 };
