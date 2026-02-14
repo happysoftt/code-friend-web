@@ -13,7 +13,8 @@ export default async function DebugPage() {
       
       <div className="mt-4">
         <p><strong>Email:</strong> {session?.user?.email}</p>
-        <p><strong>Role (ใน Session):</strong> {JSON.stringify((session?.user as any)?.role)}</p>
+        {/* แก้ตรงนี้: ลบ (as any) ออก ใช้แบบธรรมดาแทน */}
+        <p><strong>Role (ใน Session):</strong> {session?.user?.role}</p>
       </div>
     </div>
   );
