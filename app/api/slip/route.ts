@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { UTApi } from "uploadthing/server"; // ✅ ใช้ตัวนี้จัดการอัปโหลดบน Server
 
+// ✅ ลบ import UTApi ออกไปเลยครับ จะได้ไม่มีปัญหาเรื่อง Token อีก
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -12,32 +12,24 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const file = formData.get("slip") as File | null;
     const productId = formData.get("productId") as string;
     const price = formData.get("price");
+    
+    // ✅ เปลี่ยนจากรับ File เป็นรับ URL (String) ที่อัปโหลดเสร็จแล้วจากหน้าบ้าน
+    const slipUrl = formData.get("slipUrl") as string; 
 
-    if (!file || !productId) {
-      return NextResponse.json({ error: "ข้อมูลไม่ครบถ้วน" }, { status: 400 });
+    if (!slipUrl || !productId) {
+      return NextResponse.json({ error: "ข้อมูลไม่ครบถ้วน (ขาดสลิปหรือสินค้า)" }, { status: 400 });
     }
 
-    // 🔥 ส่งไฟล์ขึ้น Cloud แทนการเขียนลงเครื่อง (แก้ปัญหา Read-only error)
-    const utapi = new UTApi();
-    const uploadResponse = await utapi.uploadFiles(file);
-
-    if (uploadResponse.error) {
-      throw new Error("อัปโหลดไฟล์ล้มเหลว: " + uploadResponse.error.message);
-    }
-
-    const slipUrl = uploadResponse.data.url;
-
-    // บันทึกข้อมูลลง Database ตามปกติ
+    // ✅ บันทึกลง Database ทันที (ไม่ต้องผ่าน utapi.uploadFiles แล้ว)
     const newOrder = await prisma.order.create({
       data: {
         userId: (session.user as any).id,
         productId: productId,
         total: Number(price) || 0,
         status: "WAITING_VERIFY",
-        slipUrl: slipUrl, // URL ของรูปจะมาจาก uploadthing.com
+        slipUrl: slipUrl, // ใช้ URL จากหน้าบ้าน
         paymentRef: `SLIP-${Date.now()}`
       },
     });
@@ -46,6 +38,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error("🔥 Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการบันทึกข้อมูล" }, { status: 500 });
   }
 }
