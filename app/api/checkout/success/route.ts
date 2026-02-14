@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 
-// ✅ ใช้ as any ดักไว้เพื่อป้องกัน error เรื่อง version ไม่ตรง
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+// ✅ แก้ไข 1: ใส่ Fallback Key (sk_test_placeholder) เพื่อไม่ให้ Vercel Build พังตอนเช็ค API Key
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder", {
   apiVersion: "2025-01-27.acacia" as any, 
 });
 
@@ -14,8 +14,8 @@ export async function GET(req: Request) {
   const sessionId = searchParams.get("session_id");
   const orderId = searchParams.get("order_id");
 
-  // ถ้าไม่มีข้อมูลที่จำเป็น ให้ดีดกลับไปหน้าร้านค้า
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  // ✅ แก้ไข 2: ใช้ URL เว็บจริงของคุณเป็นค่าเริ่มต้นแทน localhost
+  const baseUrl = process.env.NEXTAUTH_URL || "https://code-friend-web-gumo.vercel.app";
 
   if (!sessionId || !orderId) {
     return NextResponse.redirect(`${baseUrl}/store`);
@@ -27,12 +27,12 @@ export async function GET(req: Request) {
 
     if (session.payment_status === "paid") {
       
-      // ✅ แก้ไข 1: ดึง productId มาด้วย เพื่อเอาไปใช้สร้าง License Key
+      // ดึง productId มาด้วย เพื่อเอาไปใช้สร้าง License Key
       const existingOrder = await prisma.order.findUnique({
           where: { id: orderId },
           select: { 
               status: true,
-              productId: true // <--- เพิ่มตรงนี้
+              productId: true 
           }
       });
 
@@ -54,7 +54,6 @@ export async function GET(req: Request) {
              await prisma.licenseKey.create({
                 data: {
                     orderId: orderId,
-                    // ✅ แก้ไข 2: ใส่ productId ที่ดึงมา
                     productId: existingOrder.productId, 
                     key: `KEY-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Date.now()}`
                 }
@@ -64,6 +63,7 @@ export async function GET(req: Request) {
     }
   } catch (error) {
     console.error("Stripe Error:", error);
+    // กรณี Error (เช่น ใช้ Key ปลอมตอน Build) ให้ข้ามไปหน้า Dashboard เลย ไม่ต้องค้างที่หน้านี้
   }
 
   // 4. พาผู้ใช้ไปหน้า Dashboard พร้อมแจ้งว่าสำเร็จ
