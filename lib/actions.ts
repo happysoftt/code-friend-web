@@ -666,7 +666,7 @@ export async function deleteArticle(id: string) {
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
   
-  // เช็คสิทธิ์
+  // 1. เช็คสิทธิ์ Admin
   if (!session || (session.user as any).role !== "ADMIN") {
     return { error: "Unauthorized" };
   }
@@ -674,30 +674,30 @@ export async function createLearningPath(formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   
+  // 🔥 จุดที่เคยผิด: รับค่าเป็น String (URL) เท่านั้น ห้ามรับเป็น File
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
   
-  // ถ้าไม่มี URL ส่งมา แสดงว่ายังไม่อัปรูป
-  if (!thumbnailUrl) return { error: "กรุณาอัปโหลดรูปภาพให้เรียบร้อยก่อนกดบันทึก" };
+  // ถ้าหน้าบ้านอัปโหลดไม่สำเร็จ จะไม่มี URL ส่งมา
+  if (!thumbnailUrl) return { error: "กรุณาอัปโหลดรูปภาพให้เรียบร้อย" };
 
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    // 💾 บันทึกลง Database เลย (เร็วมาก เพราะแค่บันทึกตัวหนังสือ)
-    // ❌ ไม่ต้องมี utapi.uploadFiles ตรงนี้แล้ว!
+    // ✅ บันทึกลง Database อย่างเดียว (ไม่มีคำสั่ง saveFile หรือ uploadFiles แล้ว)
     const newCourse = await prisma.learningPath.create({
       data: {
         title,
         slug,
         description,
-        thumbnail: thumbnailUrl, // ใส่ URL ลงไปตรงๆ
+        thumbnail: thumbnailUrl, // บันทึก URL ที่ได้จากหน้าบ้าน
         published: true,
       },
     });
 
     console.log("✅ สร้างคอร์สสำเร็จ:", newCourse.id);
-    
+
     revalidatePath("/admin/learn");
     revalidatePath("/learn"); 
 
