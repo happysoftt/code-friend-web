@@ -81,8 +81,8 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                       // Logic ดึงชื่อ Role (รองรับทั้ง String และ Relation Object)
                       // ถ้า user.role เป็น object ให้ดึง .name, ถ้าไม่มีให้เป็น "MEMBER"
                       const roleName = (typeof user.role === 'object' && user.role !== null) 
-                          ? (user.role as any).name 
-                          : (user.role as string) || "MEMBER";
+                        ? (user.role as any).name 
+                        : (String(user.role || "MEMBER"));
                       
                       const isAdmin = roleName.toUpperCase() === "ADMIN";
 
