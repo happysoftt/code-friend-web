@@ -11,7 +11,9 @@ import bcrypt from "bcryptjs";
 import { sendOrderApprovedEmail } from "@/lib/mail";
 import { Resend } from "resend";
 import { v4 as uuidv4 } from "uuid";
+const utapi = new UTApi();
 const resend = new Resend(process.env.RESEND_API_KEY);
+
 // ---------------------------------------------------------
 // 1. AUTH & USER MANAGEMENT
 // ---------------------------------------------------------
@@ -205,6 +207,8 @@ export async function updateProfile(formData: FormData) {
 
     if (imageFile && imageFile.size > 0) {
       const upload = await utapi.uploadFiles(imageFile);
+      if (upload.error) throw new Error(upload.error.message);
+      dataToUpdateUser.image = upload.data.url;
     }
 
     await prisma.user.update({
@@ -262,12 +266,16 @@ export async function createProduct(formData: FormData) {
 
   try {
     if (productFile && productFile.size > 0) {
-      const upload = await utapi.uploadFiles(productFile);
+      const upload = await utapi.uploadFiles(productFile); 
+      if (upload.error) throw new Error(upload.error.message);
+      finalFileUrl = upload.data.url;
     }
 
     let imageUrl = "";
     if (imageFile && imageFile.size > 0) {
       const upload = await utapi.uploadFiles(imageFile);
+      if (upload.error) throw new Error(upload.error.message);
+      imageUrl = upload.data.url;
     }
 
     const product = await prisma.product.create({
@@ -329,7 +337,9 @@ export async function updateProduct(formData: FormData) {
     if (downloadUrl) dataToUpdate.fileUrl = downloadUrl;
 
     if (imageFile && imageFile.size > 0) {
-      dataToUpdate.image = await saveFile(imageFile);
+      const upload = await utapi.uploadFiles(imageFile);
+      if (upload.error) throw new Error(upload.error.message);
+      dataToUpdate.image = upload.data.url;
     }
 
     await prisma.product.update({
@@ -464,6 +474,8 @@ export async function submitPaymentSlip(formData: FormData) {
     if (!product) return { error: "Product not found" };
 
     const upload = await utapi.uploadFiles(slipFile);
+    if (upload.error) throw new Error(upload.error.message);
+    const slipUrl = upload.data.url;
 
     await prisma.order.create({
       data: {
@@ -570,7 +582,9 @@ export async function createArticle(formData: FormData) {
   try {
     let coverImage = null;
     if (imageFile && imageFile.size > 0) {
-      coverImage = await saveFile(imageFile);
+      const upload = await utapi.uploadFiles(imageFile);
+      if (upload.error) throw new Error(upload.error.message);
+      coverImage = upload.data.url;
     }
 
     let category = await prisma.category.findFirst();
@@ -615,7 +629,9 @@ export async function updateArticle(formData: FormData) {
     const dataToUpdate: any = { title, content };
 
     if (coverImage && coverImage.size > 0) {
-      dataToUpdate.coverImage = await saveFile(coverImage);
+      const upload = await utapi.uploadFiles(coverImage);
+      if (upload.error) throw new Error(upload.error.message);
+      dataToUpdate.coverImage = upload.data.url;
     }
 
     await prisma.article.update({
@@ -663,7 +679,9 @@ export async function createLearningPath(formData: FormData) {
   try {
     let thumbnail = null;
     if (imageFile && imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile)
+      const upload = await utapi.uploadFiles(imageFile);
+      if (upload.error) throw new Error(upload.error.message);
+      thumbnail = upload.data.url;
     }
 
     const newCourse = await prisma.learningPath.create({
@@ -707,6 +725,8 @@ export async function updateLearningPath(formData: FormData) {
 
     if (imageFile && imageFile.size > 0) {
       const upload = await utapi.uploadFiles(imageFile);
+      if (upload.error) throw new Error(upload.error.message);
+      dataToUpdate.thumbnail = upload.data.url;
     }
 
     await prisma.learningPath.update({
@@ -833,7 +853,9 @@ export async function submitShowcase(formData: FormData) {
   try {
     let imageUrl = "";
     if (imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile);
+      const upload = await utapi.uploadFiles(imageFile); 
+    if (upload.error) throw new Error(upload.error.message);
+    const imageUrl = upload.data.url;
     }
 
     await prisma.showcase.create({
