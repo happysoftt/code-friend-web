@@ -666,47 +666,40 @@ export async function deleteArticle(id: string) {
 
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
-  
-  // 1. เช็คสิทธิ์ Admin
-  if (!session || (session.user as any).role !== "ADMIN") {
-    return { error: "สิทธิ์ไม่เพียงพอ (Unauthorized)" };
-  }
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
-  // 2. รับค่าที่ส่งมาจากหน้าบ้าน (Frontend)
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   
-  // 🔥 จุดสำคัญ: รับ URL ที่ได้จาก Uploadthing มาโดยตรง (เราตั้งชื่อว่า thumbnail ในหน้าบ้าน)
+  // 🔥 จุดวัดใจ: รับค่าตรงนี้ต้องเป็น thumbnail (URL) ไม่ใช่ image (File)
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
-  if (!thumbnailUrl) return { error: "กรุณาอัปโหลดรูปภาพก่อนครับ" };
+  
+  // ถ้า thumbnailUrl เป็น null หรือว่างเปล่า แสดงว่าหน้าบ้านส่งมาผิด
+  if (!thumbnailUrl) return { error: "ไม่พบข้อมูลรูปภาพ (URL)" };
 
-  // 3. สร้าง Slug
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    // 💾 4. บันทึกลง Database (Neon) ได้เลย
-    // ไม่ต้องมี if (imageFile) และไม่ต้องเรียก saveFile แล้วครับ!
+    // 💾 บันทึกลง Database เลย (ไม่ต้องอัปโหลดแล้ว)
     const newCourse = await prisma.learningPath.create({
       data: {
         title,
         slug,
         description,
-        thumbnail: thumbnailUrl, // ✅ ใช้ URL จาก Cloud ตรงๆ
+        thumbnail: thumbnailUrl, // ใส่ URL ลงไปเลย
         published: true,
       },
     });
 
-    console.log("✅ สร้างคอร์สสำเร็จบน Cloud:", newCourse.id);
-
+    console.log("✅ สร้างคอร์สสำเร็จ:", newCourse.id);
     revalidatePath("/admin/learn");
-    revalidatePath("/learn"); 
-
     return { success: true };
-  } catch (error: any) {
-    console.error("❌ Database Error:", error);
-    return { error: "สร้างคอร์สไม่สำเร็จ: " + error.message };
+
+  } catch (error) {
+    console.error("❌ DB Error:", error);
+    return { error: "สร้างคอร์สไม่สำเร็จ: " + (error as Error).message };
   }
 }
 
