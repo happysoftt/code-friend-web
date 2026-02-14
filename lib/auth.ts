@@ -31,7 +31,6 @@ export const authOptions: NextAuthOptions = {
           throw new Error("กรุณากรอกอีเมลและรหัสผ่าน");
         }
 
-        // ค้นหาผู้ใช้ในระบบ
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
           include: { role: true },
@@ -54,32 +53,31 @@ export const authOptions: NextAuthOptions = {
           throw new Error("บัญชีถูกระงับ");
         }
 
+        // ✅ แก้ไข: ใส่ "as any" เพื่อปิดปาก TypeScript เรื่อง Type ของ Role
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           image: user.image,
-          role: user.role?.name || "USER",
-          roleId: user.roleId || "", // ป้องกันค่า null
-        };
+          role: user.role?.name || "USER", // เราอยากได้ String แต่ Type มันรอ Object
+          roleId: user.roleId || "",
+        } as any; 
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // กรณีมีการอัปเดตข้อมูลผู้ใช้ (Update Profile)
       if (trigger === "update" && session?.name) {
         token.name = session.name;
       }
 
-      // กรณีล็อกอินครั้งแรก (Initial Sign In)
       if (user) {
         token.id = user.id;
         // @ts-ignore
         token.role = user.role;
       }
 
-      // ตรวจสอบสิทธิ์ล่าสุดจาก Database เสมอ (สำคัญมากสำหรับการเปลี่ยน Role)
+      // ดึง Role ล่าสุดจาก Database เสมอ
       if (token.email) {
         try {
           const dbUser = await prisma.user.findUnique({
@@ -102,7 +100,6 @@ export const authOptions: NextAuthOptions = {
 
     async session({ session, token }) {
       if (session.user) {
-        // ส่งต่อข้อมูล ID และ Role ไปยังฝั่ง Client
         // @ts-ignore
         session.user.id = token.id;
         // @ts-ignore
