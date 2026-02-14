@@ -666,36 +666,38 @@ export async function deleteArticle(id: string) {
 
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  
+  // ✅ ใช้ (session.user as any) เพื่อกัน TypeScript แจ้งเตือนเรื่อง Type
+  if (!session || (session.user as any).role !== "ADMIN") {
+    return { error: "Unauthorized" };
+  }
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
-  const imageFile = formData.get("image") as File;
+  
+  // ✅ รับค่าเป็น URL (string) ที่ส่งมาจากหน้าบ้าน (ใช้ชื่อ "thumbnail" ตามที่เรา set ในหน้าบ้าน)
+  const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
 
+  // สร้าง Slug สำหรับ URL
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    let thumbnail = null;
-    if (imageFile && imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile);
-      if (upload.error) throw new Error(upload.error.message);
-      thumbnail = upload.data.url;
-    }
-
+    // 💾 บันทึกลง Database ได้เลย ไม่ต้องสั่ง upload อีกรอบแล้ว
     const newCourse = await prisma.learningPath.create({
       data: {
         title,
         slug,
         description,
-        thumbnail,
+        thumbnail: thumbnailUrl || null, // ✅ ใช้ URL ที่ได้จากหน้าบ้านบันทึกลงช่อง thumbnail
         published: true,
       },
     });
 
     console.log("✅ สร้างคอร์สสำเร็จ:", newCourse.id);
 
+    // ล้าง Cache เพื่อให้หน้าเว็บแสดงผลข้อมูลล่าสุด
     revalidatePath("/admin/learn");
     revalidatePath("/learn"); 
 
