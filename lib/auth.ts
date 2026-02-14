@@ -65,38 +65,56 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // 1. Update Profile (ถ้ามี)
+      if (trigger === "update" && session?.name) {
+        token.name = session.name;
+      }
+
+      // 2. Login ครั้งแรก
       if (user) {
         token.id = user.id;
-      }
-      
-      // ดึงข้อมูล Role จาก Database มาใส่ใน Token (บัตรผ่านชั้นใน)
-      const dbUser = await prisma.user.findUnique({
-        where: { email: token.email! },
-        include: { role: true },
-      });
-
-      if (dbUser) {
-        token.id = dbUser.id;
         // @ts-ignore
-        token.role = dbUser.role?.name || "USER";
+        token.role = user.role;
       }
 
-      // 🔥 กันเหนียว: บังคับอีเมลคุณให้เป็น ADMIN ทันทีในระดับ Token
-      if (token.email === "klolo20221@gmail.com") {
-        token.role = "ADMIN";
+      // 3. Logic การตรวจสอบสิทธิ์
+      if (token.email) {
+        // ✅ ไม้ตายที่ 1: บังคับให้เมล์นี้เป็น ADMIN ทันที (ไม่ต้องรอ Database)
+        if (token.email === "klolo20221@gmail.com") {
+          token.role = "ADMIN";
+        }
+
+        // ✅ ใช้ try/catch ป้องกัน Database ล่มแล้วพาเว็บพัง
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: token.email },
+            include: { role: true },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            // ถ้า DB บอกว่าเป็น USER แต่เมล์เราคือไม้ตาย ให้ยึดค่า ADMIN ไว้
+            if (token.email !== "klolo20221@gmail.com") {
+               // @ts-ignore
+               token.role = dbUser.role?.name || "USER";
+            }
+          }
+        } catch (error) {
+          console.error("Database Error in JWT:", error);
+          // ถ้า DB Error เราก็ยังรอด เพราะ token.role ถูกเซ็ตเป็น ADMIN ไปแล้วจากข้างบน
+        }
       }
-      
+
       return token;
     },
 
     async session({ session, token }) {
       if (session.user) {
-        // 🔥 สำคัญที่สุด: ก๊อปปี้ยศจาก Token มาใส่ใน Session (บัตรผ่านชั้นนอก)
         // @ts-ignore
         session.user.id = token.id;
         // @ts-ignore
-        session.user.role = token.role; // บรรทัดนี้จะทำให้หน้า Layout เห็นคำว่า "ADMIN"
+        session.user.role = token.role; // ส่งค่า Role ที่ได้ไปให้หน้าเว็บ
       }
       return session;
     },
