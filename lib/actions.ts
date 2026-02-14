@@ -1,5 +1,6 @@
 "use server";
 
+
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import slugify from "slugify";
@@ -11,7 +12,6 @@ import { sendOrderApprovedEmail } from "@/lib/mail";
 import { Resend } from "resend";
 import { v4 as uuidv4 } from "uuid";
 
-// ❌ ลบ UTApi ออกไปแล้ว เพื่อไม่ให้เกิด Error เรื่อง Token
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---------------------------------------------------------
@@ -134,6 +134,7 @@ export async function toggleUserStatus(userId: string) {
     return { error: "Failed to update status" };
   }
 }
+
 export async function updateCategory(id: string, formData: FormData) {
   try {
     const name = formData.get("name") as string;
@@ -146,36 +147,29 @@ export async function updateCategory(id: string, formData: FormData) {
 
     await prisma.category.update({
       where: { id },
-      data: {
-        name,
-        slug,
-        description,
-      },
+      data: { name, slug, description },
     });
 
     revalidatePath("/admin/categories");
     revalidatePath(`/admin/categories/${id}`);
     
     return { success: true };
-
   } catch (error) {
     console.error("Update Category Error:", error);
-    return { error: "เกิดข้อผิดพลาด (ชื่อหรือ Slug อาจซ้ำกับที่มีอยู่)" };
+    return { error: "เกิดข้อผิดพลาด" };
   }
 }
 
 export async function deleteCategory(id: string) {
   try {
-    await prisma.category.delete({
-      where: { id },
-    });
-
+    await prisma.category.delete({ where: { id } });
     revalidatePath("/admin/categories");
     return { success: true };
   } catch (error) {
-    return { error: "ลบหมวดหมู่ไม่สำเร็จ (อาจมีสินค้าอยู่ในหมวดหมู่นี้)" };
+    return { error: "ลบหมวดหมู่ไม่สำเร็จ" };
   }
 }
+
 export async function deleteUser(userId: string) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
@@ -185,7 +179,7 @@ export async function deleteUser(userId: string) {
     revalidatePath("/admin/users");
     return { success: true };
   } catch (error) {
-    return { error: "ลบผู้ใช้งานไม่สำเร็จ (อาจมีประวัติการสั่งซื้อค้างอยู่)" };
+    return { error: "ลบผู้ใช้งานไม่สำเร็จ" };
   }
 }
 
@@ -199,13 +193,12 @@ export async function updateProfile(formData: FormData) {
   const github = formData.get("github") as string;
   const facebook = formData.get("facebook") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  // ✅ แก้ไข: รับ URL จากหน้าบ้าน
   const imageUrl = formData.get("image") as string; 
 
   try {
     const dataToUpdateUser: any = { name };
-
-    if (imageUrl) {
+    if (imageUrl && imageUrl.startsWith("http")) {
       dataToUpdateUser.image = imageUrl;
     }
 
@@ -241,35 +234,35 @@ export async function updateProfile(formData: FormData) {
 }
 
 // ---------------------------------------------------------
-// 2. PRODUCT & STORE MANAGEMENT
+// 2. PRODUCT & STORE MANAGEMENT (แก้ให้รับ URL ทั้งหมด)
 // ---------------------------------------------------------
 
 export async function createProduct(formData: FormData) {
   const session = await getServerSession(authOptions);
   if ((session?.user as any)?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
 
-  const nameValue = (formData.get("title") || formData.get("name")) as string;
+  const title = (formData.get("title") || formData.get("name")) as string;
   const description = formData.get("description") as string;
   const price = parseFloat(formData.get("price") as string) || 0;
   const categoryId = formData.get("categoryId") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  // ✅ แก้ไข: รับ URL ตรงๆ
   const imageUrl = formData.get("image") as string;   
   const fileUrl = formData.get("file") as string;     
 
-  if (!nameValue) return { error: "กรุณาระบุชื่อสินค้า" };
+  if (!title) return { error: "กรุณาระบุชื่อสินค้า" };
 
-  const slug = slugify(nameValue, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
+  const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    const product = await prisma.product.create({
+    await prisma.product.create({
       data: {
-        title: nameValue,
+        title,
         slug,
         description,
         price,
-        image: imageUrl || "",  // บันทึก URL
-        fileUrl: fileUrl || "", // บันทึก URL
+        image: imageUrl || "",  
+        fileUrl: fileUrl || "", 
         categoryId: categoryId || null,
         isActive: true,
       },
@@ -293,7 +286,7 @@ export async function updateProduct(formData: FormData) {
   const isFree = formData.get("isFree") === "true" || formData.get("isFree") === "on";
   const categoryId = formData.get("categoryId") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน (ถ้ามีการแก้ไข)
+  // ✅ แก้ไข: รับ URL
   const downloadUrl = (formData.get("downloadUrl") || formData.get("fileUrl")) as string;
   const imageUrl = formData.get("image") as string; 
 
@@ -318,7 +311,6 @@ export async function updateProduct(formData: FormData) {
     revalidatePath("/store");
     return { success: true };
   } catch (error) {
-    console.error("Update Product Error:", error);
     return { error: "แก้ไขสินค้าไม่สำเร็จ" };
   }
 }
@@ -326,21 +318,19 @@ export async function updateProduct(formData: FormData) {
 export async function deleteProduct(id: string) {
   const session = await getServerSession(authOptions);
   if ((session?.user as any)?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
-
   try {
     await prisma.product.delete({ where: { id } });
     revalidatePath("/admin/store");
     revalidatePath("/store");
     return { success: true };
   } catch (error) {
-    return { error: "ลบสินค้าไม่สำเร็จ (อาจมีคำสั่งซื้อค้างอยู่)" };
+    return { error: "ลบสินค้าไม่สำเร็จ" };
   }
 }
 
 export async function getProduct(id: string) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") return null;
-
   try {
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) return null;
@@ -355,7 +345,6 @@ export async function incrementProductView(productId: string) {
     const cookieStore = await cookies();
     const cookieName = `viewed_${productId}`;
     const hasViewed = cookieStore.get(cookieName);
-
     if (hasViewed) return;
 
     await prisma.product.update({
@@ -368,7 +357,6 @@ export async function incrementProductView(productId: string) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
     });
-
   } catch (error) {
     console.error("View Count Error:", error);
   }
@@ -377,7 +365,6 @@ export async function incrementProductView(productId: string) {
 export async function trackDownload(productId: string) {
   try {
     const session = await getServerSession(authOptions);
-    
     await prisma.$transaction([
         prisma.product.update({
             where: { id: productId },
@@ -390,16 +377,14 @@ export async function trackDownload(productId: string) {
             }
         })
     ]);
-
     return { success: true };
   } catch (error) {
-    console.error(error);
     return { error: "Log failed" };
   }
 }
 
 // ---------------------------------------------------------
-// 3. ORDER & PAYMENT
+// 3. ORDER & PAYMENT (แก้ให้รับ URL)
 // ---------------------------------------------------------
 
 export async function createOrder(productId: string) {
@@ -432,7 +417,7 @@ export async function submitPaymentSlip(formData: FormData) {
 
   const productId = formData.get("productId") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  // ✅ แก้ไข: รับ URL สลิป
   const slipUrl = formData.get("slip") as string;
   
   if (!slipUrl) return { error: "กรุณาแนบสลิปโอนเงิน" };
@@ -453,7 +438,6 @@ export async function submitPaymentSlip(formData: FormData) {
 
     return { success: true };
   } catch (error) {
-    console.error("Slip Upload Error:", error);
     return { error: "บันทึกสลิปไม่สำเร็จ" };
   }
 }
@@ -490,7 +474,6 @@ export async function approveOrder(orderId: string) {
     revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
-    console.error(error);
     return { error: "อนุมัติไม่สำเร็จ" };
   }
 }
@@ -498,7 +481,6 @@ export async function approveOrder(orderId: string) {
 export async function rejectOrder(orderId: string) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
-
   try {
     await prisma.order.update({
       where: { id: orderId },
@@ -527,7 +509,7 @@ export async function updateOrderStatus(orderId: string, newStatus: any) {
 }
 
 // ---------------------------------------------------------
-// 4. ARTICLE & CONTENT
+// 4. ARTICLE & CONTENT (แก้ให้รับ URL)
 // ---------------------------------------------------------
 
 export async function createArticle(formData: FormData) {
@@ -538,7 +520,7 @@ export async function createArticle(formData: FormData) {
   const content = formData.get("content") as string;
   const excerpt = formData.get("excerpt") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  // ✅ แก้ไข: รับ URL
   const coverImage = formData.get("image") as string; 
 
   if (!title || !content) return { error: "กรุณากรอกข้อมูลให้ครบ" };
@@ -570,7 +552,6 @@ export async function createArticle(formData: FormData) {
     revalidatePath("/articles");
     return { success: true };
   } catch (error) {
-    console.error(error);
     return { error: "บันทึกบทความไม่สำเร็จ" };
   }
 }
@@ -583,12 +564,11 @@ export async function updateArticle(formData: FormData) {
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน (ถ้ามี)
+  // ✅ แก้ไข: รับ URL
   const coverImage = formData.get("coverImage") as string; 
 
   try {
     const dataToUpdate: any = { title, content };
-
     if (coverImage) {
       dataToUpdate.coverImage = coverImage;
     }
@@ -620,7 +600,7 @@ export async function deleteArticle(id: string) {
 }
 
 // ---------------------------------------------------------
-// 5. LEARNING PATH & LESSONS
+// 5. LEARNING PATH & LESSONS (แก้แล้ว - พระเอกของเรา)
 // ---------------------------------------------------------
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
@@ -629,7 +609,7 @@ export async function createLearningPath(formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  // ✅ รับ URL 100%
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
@@ -665,16 +645,11 @@ export async function updateLearningPath(formData: FormData) {
   const description = formData.get("description") as string;
   const published = formData.get("published") === "true";
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  // ✅ แก้ไข: รับ URL
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   try {
-    const dataToUpdate: any = {
-      title,
-      description,
-      published,
-    };
-
+    const dataToUpdate: any = { title, description, published };
     if (thumbnailUrl) {
       dataToUpdate.thumbnail = thumbnailUrl;
     }
@@ -712,7 +687,6 @@ export async function createLesson(formData: FormData) {
   const title = formData.get("title") as string;
   const videoUrl = formData.get("videoUrl") as string;
   const content = formData.get("content") as string;
-  
   const duration = parseInt(formData.get("duration") as string) || 0;
 
   if (!title || !courseId) return { error: "ข้อมูลไม่ครบถ้วน" };
@@ -782,7 +756,7 @@ export async function deleteLesson(lessonId: string, courseId: string) {
 }
 
 // ---------------------------------------------------------
-// 6. COMMUNITY (SHOWCASE, SNIPPET, COMMENT)
+// 6. COMMUNITY (SHOWCASE, SNIPPET, COMMENT) - แก้ให้รับ URL
 // ---------------------------------------------------------
 
 export async function submitShowcase(formData: FormData) {
@@ -794,7 +768,7 @@ export async function submitShowcase(formData: FormData) {
   const demoUrl = formData.get("demoUrl") as string;
   const githubUrl = formData.get("githubUrl") as string;
   
-  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  // ✅ แก้ไข: รับ URL
   const imageUrl = formData.get("image") as string; 
 
   if (!title) return { error: "กรุณากรอกข้อมูลให้ครบ" };
@@ -978,7 +952,6 @@ export async function createComment(data: {
     if (showcaseId) revalidatePath(`/showcase/${showcaseId}`);
     if (articleId) revalidatePath(`/articles/${articleId}`);
     if (snippetId) revalidatePath(`/snippets/${snippetId}`);
-    
     if (learningPathId) {
         const course = await prisma.learningPath.findUnique({ 
             where: { id: learningPathId },
@@ -995,14 +968,12 @@ export async function createComment(data: {
   }
 }
 
-
 export const postComment = async (formData: FormData) => {
     const content = formData.get("content") as string;
     const articleId = formData.get("articleId") as string;
     const showcaseId = formData.get("showcaseId") as string;
     const snippetId = formData.get("snippetId") as string;
     const learningPathId = formData.get("learningPathId") as string;
-    
     return createComment({ content, articleId, showcaseId, snippetId, learningPathId });
 };
 
@@ -1087,8 +1058,6 @@ export async function createCategory(formData: FormData) {
   }
 }
 
-
-
 export async function updateSystemConfig(data: any) {
   try {
     await prisma.systemConfig.upsert({
@@ -1096,7 +1065,6 @@ export async function updateSystemConfig(data: any) {
       update: data,
       create: { id: "default", ...data },
     });
-    
     revalidatePath("/admin/settings");
     return { success: true };
   } catch (error) {
@@ -1145,11 +1113,11 @@ export async function getTopRankers() {
     },
   });
 }
+
 // ------------------------------------------
 // 11. PASSWORD RESET SYSTEM
 // ------------------------------------------
 
-// 1. ขอรีเซ็ต (ส่งอีเมล)
 export async function requestPasswordReset(email: string) {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
@@ -1189,7 +1157,6 @@ export async function requestPasswordReset(email: string) {
   }
 }
 
-// 2. ตั้งรหัสใหม่ (Verify Token)
 export async function resetPassword(token: string, newPassword: string) {
   try {
     const existingToken = await prisma.verificationToken.findUnique({
