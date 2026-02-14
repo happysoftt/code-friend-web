@@ -6,7 +6,7 @@ import slugify from "slugify";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { saveFile } from "@/lib/storage";
+import { UTApi } from "uploadthing/server";
 import bcrypt from "bcryptjs";
 import { sendOrderApprovedEmail } from "@/lib/mail";
 import { Resend } from "resend";
@@ -204,7 +204,7 @@ export async function updateProfile(formData: FormData) {
     const dataToUpdateUser: any = { name };
 
     if (imageFile && imageFile.size > 0) {
-      dataToUpdateUser.image = await saveFile(imageFile);
+      const upload = await utapi.uploadFiles(imageFile);
     }
 
     await prisma.user.update({
@@ -262,12 +262,12 @@ export async function createProduct(formData: FormData) {
 
   try {
     if (productFile && productFile.size > 0) {
-      finalFileUrl = await saveFile(productFile);
+      const upload = await utapi.uploadFiles(productFile);
     }
 
     let imageUrl = "";
     if (imageFile && imageFile.size > 0) {
-      imageUrl = await saveFile(imageFile);
+      const upload = await utapi.uploadFiles(imageFile);
     }
 
     const product = await prisma.product.create({
@@ -463,7 +463,7 @@ export async function submitPaymentSlip(formData: FormData) {
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product) return { error: "Product not found" };
 
-    const slipUrl = await saveFile(slipFile);
+    const upload = await utapi.uploadFiles(slipFile);
 
     await prisma.order.create({
       data: {
@@ -663,7 +663,7 @@ export async function createLearningPath(formData: FormData) {
   try {
     let thumbnail = null;
     if (imageFile && imageFile.size > 0) {
-      thumbnail = await saveFile(imageFile);
+      const upload = await utapi.uploadFiles(imageFile)
     }
 
     const newCourse = await prisma.learningPath.create({
@@ -706,7 +706,7 @@ export async function updateLearningPath(formData: FormData) {
     };
 
     if (imageFile && imageFile.size > 0) {
-      dataToUpdate.thumbnail = await saveFile(imageFile);
+      const upload = await utapi.uploadFiles(imageFile);
     }
 
     await prisma.learningPath.update({
@@ -833,7 +833,7 @@ export async function submitShowcase(formData: FormData) {
   try {
     let imageUrl = "";
     if (imageFile.size > 0) {
-      imageUrl = await saveFile(imageFile);
+      const upload = await utapi.uploadFiles(imageFile);
     }
 
     await prisma.showcase.create({
