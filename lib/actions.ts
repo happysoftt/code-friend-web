@@ -663,42 +663,48 @@ export async function deleteArticle(id: string) {
 // ---------------------------------------------------------
 // 5. LEARNING PATH & LESSONS
 // ---------------------------------------------------------
-
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
+  
+  // เช็คสิทธิ์
+  if (!session || (session.user as any).role !== "ADMIN") {
+    return { error: "Unauthorized" };
+  }
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   
-  // 🔥 จุดวัดใจ: รับค่าตรงนี้ต้องเป็น thumbnail (URL) ไม่ใช่ image (File)
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
   
-  // ถ้า thumbnailUrl เป็น null หรือว่างเปล่า แสดงว่าหน้าบ้านส่งมาผิด
-  if (!thumbnailUrl) return { error: "ไม่พบข้อมูลรูปภาพ (URL)" };
+  // ถ้าไม่มี URL ส่งมา แสดงว่ายังไม่อัปรูป
+  if (!thumbnailUrl) return { error: "กรุณาอัปโหลดรูปภาพให้เรียบร้อยก่อนกดบันทึก" };
 
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    // 💾 บันทึกลง Database เลย (ไม่ต้องอัปโหลดแล้ว)
+    // 💾 บันทึกลง Database เลย (เร็วมาก เพราะแค่บันทึกตัวหนังสือ)
+    // ❌ ไม่ต้องมี utapi.uploadFiles ตรงนี้แล้ว!
     const newCourse = await prisma.learningPath.create({
       data: {
         title,
         slug,
         description,
-        thumbnail: thumbnailUrl, // ใส่ URL ลงไปเลย
+        thumbnail: thumbnailUrl, // ใส่ URL ลงไปตรงๆ
         published: true,
       },
     });
 
     console.log("✅ สร้างคอร์สสำเร็จ:", newCourse.id);
+    
     revalidatePath("/admin/learn");
+    revalidatePath("/learn"); 
+
     return { success: true };
 
   } catch (error) {
-    console.error("❌ DB Error:", error);
+    console.error("❌ Database Error:", error);
     return { error: "สร้างคอร์สไม่สำเร็จ: " + (error as Error).message };
   }
 }
