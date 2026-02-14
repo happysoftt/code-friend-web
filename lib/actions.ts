@@ -6,12 +6,12 @@ import slugify from "slugify";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { UTApi } from "uploadthing/server";
 import bcrypt from "bcryptjs";
 import { sendOrderApprovedEmail } from "@/lib/mail";
 import { Resend } from "resend";
 import { v4 as uuidv4 } from "uuid";
-const utapi = new UTApi();
+
+// ❌ ลบ UTApi ออกไปแล้ว เพื่อไม่ให้เกิด Error เรื่อง Token
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---------------------------------------------------------
@@ -64,7 +64,7 @@ export async function registerUser(formData: FormData) {
 
 export async function adminResetPassword(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const userId = formData.get("userId") as string;
   const newPassword = formData.get("newPassword") as string;
@@ -86,7 +86,7 @@ export async function adminResetPassword(formData: FormData) {
 
 export async function updateUserRole(userId: string, roleName: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   try {
     let role = await prisma.role.findFirst({ where: { name: roleName } });
@@ -117,7 +117,7 @@ export async function updateUserRole(userId: string, roleName: string) {
 
 export async function toggleUserStatus(userId: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   try {
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -144,7 +144,6 @@ export async function updateCategory(id: string, formData: FormData) {
       return { error: "กรุณากรอกชื่อและ Slug ให้ครบถ้วน" };
     }
 
-    // อัปเดตข้อมูลลง Database
     await prisma.category.update({
       where: { id },
       data: {
@@ -154,7 +153,6 @@ export async function updateCategory(id: string, formData: FormData) {
       },
     });
 
-    // รีเฟรชหน้าหมวดหมู่เพื่อให้ข้อมูลอัปเดตทันที
     revalidatePath("/admin/categories");
     revalidatePath(`/admin/categories/${id}`);
     
@@ -180,7 +178,7 @@ export async function deleteCategory(id: string) {
 }
 export async function deleteUser(userId: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   try {
     await prisma.user.delete({ where: { id: userId } });
@@ -200,26 +198,26 @@ export async function updateProfile(formData: FormData) {
   const website = formData.get("website") as string;
   const github = formData.get("github") as string;
   const facebook = formData.get("facebook") as string;
-  const imageFile = formData.get("image") as File;
+  
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  const imageUrl = formData.get("image") as string; 
 
   try {
     const dataToUpdateUser: any = { name };
 
-    if (imageFile && imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile);
-      if (upload.error) throw new Error(upload.error.message);
-      dataToUpdateUser.image = upload.data.url;
+    if (imageUrl) {
+      dataToUpdateUser.image = imageUrl;
     }
 
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: (session.user as any).id },
       data: dataToUpdateUser,
     });
 
     await prisma.profile.upsert({
-      where: { userId: session.user.id },
+      where: { userId: (session.user as any).id },
       create: {
-        userId: session.user.id,
+        userId: (session.user as any).id,
         bio,
         website,
         github,
@@ -248,73 +246,45 @@ export async function updateProfile(formData: FormData) {
 
 export async function createProduct(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
+  if ((session?.user as any)?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
 
   const nameValue = (formData.get("title") || formData.get("name")) as string;
+  const description = formData.get("description") as string;
+  const price = parseFloat(formData.get("price") as string) || 0;
+  const categoryId = formData.get("categoryId") as string;
+  
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  const imageUrl = formData.get("image") as string;   
+  const fileUrl = formData.get("file") as string;     
+
   if (!nameValue) return { error: "กรุณาระบุชื่อสินค้า" };
 
   const slug = slugify(nameValue, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
-  const description = formData.get("description") as string;
-  const price = parseFloat(formData.get("price") as string) || 0;
-  const isFree = formData.get("isFree") === "true" || formData.get("isFree") === "on";
-  const categoryId = formData.get("categoryId") as string;
-  const downloadUrl = (formData.get("downloadUrl") || formData.get("fileUrl")) as string;
-  const imageFile = formData.get("image") as File;
-  const productFile = formData.get("file") as File;
-  
-  let finalFileUrl = downloadUrl;
 
   try {
-    if (productFile && productFile.size > 0) {
-      const upload = await utapi.uploadFiles(productFile); 
-      if (upload.error) throw new Error(upload.error.message);
-      finalFileUrl = upload.data.url;
-    }
-
-    let imageUrl = "";
-    if (imageFile && imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile);
-      if (upload.error) throw new Error(upload.error.message);
-      imageUrl = upload.data.url;
-    }
-
     const product = await prisma.product.create({
       data: {
         title: nameValue,
         slug,
         description,
         price,
-        isFree,
-        image: imageUrl,
-        fileUrl: finalFileUrl,
+        image: imageUrl || "",  // บันทึก URL
+        fileUrl: fileUrl || "", // บันทึก URL
         categoryId: categoryId || null,
         isActive: true,
       },
     });
 
-    const version = formData.get("version") as string;
-    if (version) {
-      await prisma.downloadResource.create({
-        data: {
-          version: version,
-          fileUrl: finalFileUrl,
-          productId: product.id,
-        },
-      });
-    }
-
     revalidatePath("/admin/store");
-    revalidatePath("/store");
     return { success: true };
   } catch (error) {
-    console.error("Create Product Error:", error);
-    return { error: "ไม่สามารถสร้างสินค้าได้: " + (error as Error).message };
+    return { error: "สร้างสินค้าไม่สำเร็จ" };
   }
 }
 
 export async function updateProduct(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const id = formData.get("id") as string;
   const title = (formData.get("title") || formData.get("name")) as string;
@@ -322,8 +292,10 @@ export async function updateProduct(formData: FormData) {
   const price = parseFloat(formData.get("price") as string) || 0;
   const isFree = formData.get("isFree") === "true" || formData.get("isFree") === "on";
   const categoryId = formData.get("categoryId") as string;
+  
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน (ถ้ามีการแก้ไข)
   const downloadUrl = (formData.get("downloadUrl") || formData.get("fileUrl")) as string;
-  const imageFile = formData.get("image") as File;
+  const imageUrl = formData.get("image") as string; 
 
   try {
     const dataToUpdate: any = {
@@ -335,12 +307,7 @@ export async function updateProduct(formData: FormData) {
     };
 
     if (downloadUrl) dataToUpdate.fileUrl = downloadUrl;
-
-    if (imageFile && imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile);
-      if (upload.error) throw new Error(upload.error.message);
-      dataToUpdate.image = upload.data.url;
-    }
+    if (imageUrl) dataToUpdate.image = imageUrl;
 
     await prisma.product.update({
       where: { id },
@@ -358,7 +325,7 @@ export async function updateProduct(formData: FormData) {
 
 export async function deleteProduct(id: string) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
+  if ((session?.user as any)?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
 
   try {
     await prisma.product.delete({ where: { id } });
@@ -372,7 +339,7 @@ export async function deleteProduct(id: string) {
 
 export async function getProduct(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return null;
+  if (!session || (session.user as any).role !== "ADMIN") return null;
 
   try {
     const product = await prisma.product.findUnique({ where: { id } });
@@ -419,8 +386,7 @@ export async function trackDownload(productId: string) {
         prisma.downloadHistory.create({
             data: {
                 productId: productId,
-                userId: session?.user?.id || "", 
-                // Note: ถ้าไม่มี user อาจต้องแก้ schema ให้ userId เป็น optional หรือ handle กรณี guest
+                userId: (session?.user as any)?.id || "", 
             }
         })
     ]);
@@ -446,7 +412,7 @@ export async function createOrder(productId: string) {
 
     const order = await prisma.order.create({
       data: {
-        userId: session.user.id,
+        userId: (session.user as any).id,
         productId: product.id,
         total: product.price,
         status: "WAITING_VERIFY",
@@ -465,25 +431,23 @@ export async function submitPaymentSlip(formData: FormData) {
   if (!session) return { error: "Unauthorized" };
 
   const productId = formData.get("productId") as string;
-  const slipFile = formData.get("slip") as File;
   
-  if (!slipFile || slipFile.size === 0) return { error: "กรุณาแนบสลิปโอนเงิน" };
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  const slipUrl = formData.get("slip") as string;
+  
+  if (!slipUrl) return { error: "กรุณาแนบสลิปโอนเงิน" };
 
   try {
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product) return { error: "Product not found" };
 
-    const upload = await utapi.uploadFiles(slipFile);
-    if (upload.error) throw new Error(upload.error.message);
-    const slipUrl = upload.data.url;
-
     await prisma.order.create({
       data: {
-        userId: session.user.id,
+        userId: (session.user as any).id,
         productId: product.id,
         total: product.price,
         status: "WAITING_VERIFY",
-        slipUrl: slipUrl,
+        slipUrl: slipUrl, // บันทึก URL
       },
     });
 
@@ -496,7 +460,7 @@ export async function submitPaymentSlip(formData: FormData) {
 
 export async function approveOrder(orderId: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   try {
     const order = await prisma.order.update({
@@ -533,7 +497,7 @@ export async function approveOrder(orderId: string) {
 
 export async function rejectOrder(orderId: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   try {
     await prisma.order.update({
@@ -549,7 +513,7 @@ export async function rejectOrder(orderId: string) {
 
 export async function updateOrderStatus(orderId: string, newStatus: any) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
   try {
     await prisma.order.update({
       where: { id: orderId },
@@ -568,25 +532,20 @@ export async function updateOrderStatus(orderId: string, newStatus: any) {
 
 export async function createArticle(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
   const excerpt = formData.get("excerpt") as string;
-  const imageFile = formData.get("image") as File;
+  
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  const coverImage = formData.get("image") as string; 
 
   if (!title || !content) return { error: "กรุณากรอกข้อมูลให้ครบ" };
 
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    let coverImage = null;
-    if (imageFile && imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile);
-      if (upload.error) throw new Error(upload.error.message);
-      coverImage = upload.data.url;
-    }
-
     let category = await prisma.category.findFirst();
     if (!category) {
       category = await prisma.category.create({
@@ -600,9 +559,9 @@ export async function createArticle(formData: FormData) {
         slug,
         content,
         excerpt,
-        coverImage,
+        coverImage: coverImage || null, // บันทึก URL
         published: true,
-        authorId: session.user.id,
+        authorId: (session.user as any).id,
         categoryId: category.id,
       },
     });
@@ -618,20 +577,20 @@ export async function createArticle(formData: FormData) {
 
 export async function updateArticle(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const id = formData.get("id") as string;
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
-  const coverImage = formData.get("coverImage") as File;
+  
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน (ถ้ามี)
+  const coverImage = formData.get("coverImage") as string; 
 
   try {
     const dataToUpdate: any = { title, content };
 
-    if (coverImage && coverImage.size > 0) {
-      const upload = await utapi.uploadFiles(coverImage);
-      if (upload.error) throw new Error(upload.error.message);
-      dataToUpdate.coverImage = upload.data.url;
+    if (coverImage) {
+      dataToUpdate.coverImage = coverImage;
     }
 
     await prisma.article.update({
@@ -649,7 +608,7 @@ export async function updateArticle(formData: FormData) {
 
 export async function deleteArticle(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
   try {
     await prisma.article.delete({ where: { id } });
     revalidatePath("/admin/articles");
@@ -665,59 +624,49 @@ export async function deleteArticle(id: string) {
 // ---------------------------------------------------------
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
-  
-  // 1. เช็คสิทธิ์ Admin
-  if (!session || (session.user as any).role !== "ADMIN") {
-    return { error: "Unauthorized" };
-  }
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   
-  // 🔥 จุดที่เคยผิด: รับค่าเป็น String (URL) เท่านั้น ห้ามรับเป็น File
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
-  
-  // ถ้าหน้าบ้านอัปโหลดไม่สำเร็จ จะไม่มี URL ส่งมา
-  if (!thumbnailUrl) return { error: "กรุณาอัปโหลดรูปภาพให้เรียบร้อย" };
+  if (!thumbnailUrl) return { error: "กรุณาอัปโหลดรูปภาพ" }; 
 
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    // ✅ บันทึกลง Database อย่างเดียว (ไม่มีคำสั่ง saveFile หรือ uploadFiles แล้ว)
-    const newCourse = await prisma.learningPath.create({
+    await prisma.learningPath.create({
       data: {
         title,
         slug,
         description,
-        thumbnail: thumbnailUrl, // บันทึก URL ที่ได้จากหน้าบ้าน
+        thumbnail: thumbnailUrl, // บันทึก URL
         published: true,
       },
     });
 
-    console.log("✅ สร้างคอร์สสำเร็จ:", newCourse.id);
-
     revalidatePath("/admin/learn");
     revalidatePath("/learn"); 
-
     return { success: true };
-
   } catch (error) {
-    console.error("❌ Database Error:", error);
     return { error: "สร้างคอร์สไม่สำเร็จ: " + (error as Error).message };
   }
 }
 
 export async function updateLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const id = formData.get("id") as string;
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const published = formData.get("published") === "true";
-  const imageFile = formData.get("image") as File;
+  
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  const thumbnailUrl = formData.get("thumbnail") as string; 
 
   try {
     const dataToUpdate: any = {
@@ -726,10 +675,8 @@ export async function updateLearningPath(formData: FormData) {
       published,
     };
 
-    if (imageFile && imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile);
-      if (upload.error) throw new Error(upload.error.message);
-      dataToUpdate.thumbnail = upload.data.url;
+    if (thumbnailUrl) {
+      dataToUpdate.thumbnail = thumbnailUrl;
     }
 
     await prisma.learningPath.update({
@@ -746,7 +693,7 @@ export async function updateLearningPath(formData: FormData) {
 
 export async function deleteLearningPath(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
   try {
     await prisma.learningPath.delete({ where: { id } });
     revalidatePath("/admin/learn");
@@ -759,18 +706,16 @@ export async function deleteLearningPath(id: string) {
 
 export async function createLesson(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const courseId = formData.get("courseId") as string;
   const title = formData.get("title") as string;
   const videoUrl = formData.get("videoUrl") as string;
   const content = formData.get("content") as string;
   
-
   const duration = parseInt(formData.get("duration") as string) || 0;
 
   if (!title || !courseId) return { error: "ข้อมูลไม่ครบถ้วน" };
-
 
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
@@ -793,7 +738,6 @@ export async function createLesson(formData: FormData) {
       },
     });
 
-    
     revalidatePath(`/admin/learn/${courseId}`);
     revalidatePath("/learn"); 
     
@@ -806,7 +750,7 @@ export async function createLesson(formData: FormData) {
 
 export async function updateLesson(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
 
   const id = formData.get("id") as string;
   const title = formData.get("title") as string;
@@ -827,7 +771,7 @@ export async function updateLesson(formData: FormData) {
 
 export async function deleteLesson(lessonId: string, courseId: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
   try {
     await prisma.lesson.delete({ where: { id: lessonId } });
     revalidatePath(`/admin/learn/${courseId}`);
@@ -849,32 +793,27 @@ export async function submitShowcase(formData: FormData) {
   const description = formData.get("description") as string;
   const demoUrl = formData.get("demoUrl") as string;
   const githubUrl = formData.get("githubUrl") as string;
-  const imageFile = formData.get("image") as File;
+  
+  // ✅ แก้รับค่าเป็น URL จากหน้าบ้าน
+  const imageUrl = formData.get("image") as string; 
 
-  if (!title || !imageFile) return { error: "กรุณากรอกข้อมูลให้ครบ" };
+  if (!title) return { error: "กรุณากรอกข้อมูลให้ครบ" };
 
   try {
-    let imageUrl = "";
-    if (imageFile.size > 0) {
-      const upload = await utapi.uploadFiles(imageFile); 
-    if (upload.error) throw new Error(upload.error.message);
-    const imageUrl = upload.data.url;
-    }
-
     await prisma.showcase.create({
       data: {
         title,
         description,
-        image: imageUrl,
+        image: imageUrl || "", // บันทึก URL
         demoUrl,
         githubUrl,
-        userId: session.user.id,
+        userId: (session.user as any).id,
         approved: false,
       },
     });
 
-    const count = await prisma.showcase.count({ where: { userId: session.user.id } });
-    if (count === 1) await checkAndAwardBadges(session.user.id, "FIRST_SHOWCASE");
+    const count = await prisma.showcase.count({ where: { userId: (session.user as any).id } });
+    if (count === 1) await checkAndAwardBadges((session.user as any).id, "FIRST_SHOWCASE");
 
     revalidatePath("/showcase");
     return { success: true };
@@ -885,7 +824,7 @@ export async function submitShowcase(formData: FormData) {
 
 export async function approveShowcase(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
   await prisma.showcase.update({ where: { id }, data: { approved: true } });
   revalidatePath("/admin/showcase");
   return { success: true };
@@ -902,7 +841,7 @@ export async function toggleShowcaseLike(showcaseId: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return { error: "Unauthorized" };
 
-  const userId = session.user.id;
+  const userId = (session.user as any).id;
 
   try {
     const existingLike = await prisma.showcaseLike.findUnique({
@@ -956,7 +895,7 @@ export async function createSnippet(formData: FormData) {
         description,
         isPublic: true,
         approved: false,
-        authorId: session.user.id,
+        authorId: (session.user as any).id,
       },
     });
 
@@ -968,8 +907,8 @@ export async function createSnippet(formData: FormData) {
       },
     });
 
-    const count = await prisma.snippet.count({ where: { authorId: session.user.id } });
-    if (count >= 10) await checkAndAwardBadges(session.user.id, "SNIPPET_10");
+    const count = await prisma.snippet.count({ where: { authorId: (session.user as any).id } });
+    if (count >= 10) await checkAndAwardBadges((session.user as any).id, "SNIPPET_10");
 
     revalidatePath("/snippets");
     return { success: true };
@@ -980,7 +919,7 @@ export async function createSnippet(formData: FormData) {
 
 export async function approveSnippet(id: string) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return { error: "Unauthorized" };
+  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
   await prisma.snippet.update({ where: { id }, data: { approved: true } });
   revalidatePath("/admin/snippets");
   return { success: true };
@@ -1006,11 +945,10 @@ export async function createComment(data: {
     const { content, articleId, showcaseId, snippetId, learningPathId } = data;
     if (!content || content.trim() === "") return { error: "กรุณาพิมพ์ข้อความ" };
 
-    // 1. บันทึกคอมเมนต์ลง Database
     await prisma.comment.create({
       data: {
         content,
-        userId: session.user.id,
+        userId: (session.user as any).id,
         ...(articleId && { articleId }),
         ...(showcaseId && { showcaseId }),
         ...(snippetId && { snippetId }),
@@ -1018,29 +956,25 @@ export async function createComment(data: {
       },
     });
 
-    // 2. ระบบแจ้งเตือน (ตัวอย่างสำหรับ Snippet)
     if (snippetId) {
         const snippet = await prisma.snippet.findUnique({ where: { id: snippetId } });
-        // ✅ แก้ไขตรงนี้: เปลี่ยนจาก userId เป็น authorId
-        if (snippet && snippet.authorId !== session.user.id) {
+        if (snippet && snippet.authorId !== (session.user as any).id) {
           await prisma.notification.create({
             data: {
               type: "COMMENT",
               message: `${session.user.name} คอมเมนต์ในโค้ดของคุณ: "${content.substring(0, 20)}..."`,
               link: `/snippets/${snippet.slug}`,
-              userId: snippet.authorId, // ✅ เปลี่ยนตรงนี้ด้วย
+              userId: snippet.authorId, 
             },
           });
         }
     }
 
-    // 3. เพิ่มแต้มความดี (XP) ให้ผู้คอมเมนต์
     await prisma.user.update({
-        where: { id: session.user.id },
+        where: { id: (session.user as any).id },
         data: { xp: { increment: 10 } },
     });
 
-    // 4. ล้าง Cache เพื่อให้คอมเมนต์ใหม่แสดงผลทันที
     if (showcaseId) revalidatePath(`/showcase/${showcaseId}`);
     if (articleId) revalidatePath(`/articles/${articleId}`);
     if (snippetId) revalidatePath(`/snippets/${snippetId}`);
@@ -1062,7 +996,6 @@ export async function createComment(data: {
 }
 
 
-// Alias for backwards compatibility if needed, or remove if unused
 export const postComment = async (formData: FormData) => {
     const content = formData.get("content") as string;
     const articleId = formData.get("articleId") as string;
@@ -1081,7 +1014,7 @@ export async function deleteComment(commentId: string) {
     const comment = await prisma.comment.findUnique({ where: { id: commentId } });
     if (!comment) return { error: "ไม่พบคอมเมนต์" };
 
-    if (comment.userId !== session.user.id && session.user.role !== "ADMIN") {
+    if (comment.userId !== (session.user as any).id && (session.user as any).role !== "ADMIN") {
       return { error: "คุณไม่มีสิทธิ์ลบคอมเมนต์นี้" };
     }
 
@@ -1101,7 +1034,7 @@ export async function getMyNotifications() {
   const session = await getServerSession(authOptions);
   if (!session) return [];
   return await prisma.notification.findMany({
-    where: { userId: session.user.id },
+    where: { userId: (session.user as any).id },
     orderBy: { createdAt: "desc" },
     take: 10,
   });
@@ -1140,7 +1073,7 @@ export async function checkAndAwardBadges(userId: string, criteria: string) {
 
 export async function createCategory(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
+  if ((session?.user as any)?.role !== "ADMIN") return { error: "สิทธิ์ไม่เพียงพอ" };
 
   const name = formData.get("name") as string;
   const slug = slugify(name, { lower: true, strict: true });
@@ -1222,14 +1155,11 @@ export async function requestPasswordReset(email: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return { error: "ไม่พบอีเมลนี้ในระบบ" };
 
-    // ถ้า user สมัครผ่าน Google จะไม่มี password
     if (!user.password) return { error: "บัญชีนี้ล็อกอินผ่าน Google โปรดใช้ปุ่ม Google Login" };
 
-    // สร้าง Token (หมดอายุใน 1 ชั่วโมง)
     const token = uuidv4();
     const expires = new Date(new Date().getTime() + 3600 * 1000);
 
-    // บันทึก Token ลง DB
     await prisma.verificationToken.create({
       data: {
         identifier: email,
@@ -1238,11 +1168,10 @@ export async function requestPasswordReset(email: string) {
       },
     });
 
-    // ส่งอีเมล (แก้ Link ให้ตรงกับเว็บจริงตอน Deploy)
     const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
     
     await resend.emails.send({
-      from: 'Code Friend <noreply@resend.dev>', // หรือ domain ที่คุณ verify กับ resend
+      from: 'Code Friend <noreply@resend.dev>', 
       to: email,
       subject: 'รีเซ็ตรหัสผ่าน - Code Friend',
       html: `
@@ -1263,29 +1192,24 @@ export async function requestPasswordReset(email: string) {
 // 2. ตั้งรหัสใหม่ (Verify Token)
 export async function resetPassword(token: string, newPassword: string) {
   try {
-    // หา Token ใน DB
     const existingToken = await prisma.verificationToken.findUnique({
       where: { token },
     });
 
     if (!existingToken) return { error: "ลิงก์ไม่ถูกต้องหรือถูกใช้งานไปแล้ว" };
 
-    // เช็ควันหมดอายุ
     if (new Date() > existingToken.expires) {
       await prisma.verificationToken.delete({ where: { token } });
       return { error: "ลิงก์หมดอายุแล้ว กรุณาขอใหม่" };
     }
 
-    // Hash รหัสใหม่
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // อัปเดต User
     await prisma.user.update({
       where: { email: existingToken.identifier },
       data: { password: hashedPassword },
     });
 
-    // ลบ Token ทิ้ง
     await prisma.verificationToken.delete({ where: { token } });
 
     return { success: true };
@@ -1300,11 +1224,11 @@ export async function markNotificationAsRead(notificationId: string) {
     if (!session) return;
 
     await prisma.notification.update({
-      where: { id: notificationId, userId: session.user.id }, // เช็ค userId ด้วยเพื่อความปลอดภัย
+      where: { id: notificationId, userId: (session.user as any).id }, 
       data: { isRead: true }
     });
     
-    revalidatePath("/"); // รีเฟรชข้อมูล
+    revalidatePath("/"); 
     return { success: true };
   } catch (error) {
     return { error: "Failed to update" };
@@ -1317,7 +1241,7 @@ export async function markAllNotificationsAsRead() {
     if (!session) return;
 
     await prisma.notification.updateMany({
-      where: { userId: session.user.id, isRead: false },
+      where: { userId: (session.user as any).id, isRead: false },
       data: { isRead: true }
     });
 
