@@ -667,44 +667,46 @@ export async function deleteArticle(id: string) {
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
   
-  // ✅ ใช้ (session.user as any) เพื่อกัน TypeScript แจ้งเตือนเรื่อง Type
+  // 1. เช็คสิทธิ์ Admin
   if (!session || (session.user as any).role !== "ADMIN") {
-    return { error: "Unauthorized" };
+    return { error: "สิทธิ์ไม่เพียงพอ (Unauthorized)" };
   }
 
+  // 2. รับค่าที่ส่งมาจากหน้าบ้าน (Frontend)
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   
-  // ✅ รับค่าเป็น URL (string) ที่ส่งมาจากหน้าบ้าน (ใช้ชื่อ "thumbnail" ตามที่เรา set ในหน้าบ้าน)
+  // 🔥 จุดสำคัญ: รับ URL ที่ได้จาก Uploadthing มาโดยตรง (เราตั้งชื่อว่า thumbnail ในหน้าบ้าน)
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
+  if (!thumbnailUrl) return { error: "กรุณาอัปโหลดรูปภาพก่อนครับ" };
 
-  // สร้าง Slug สำหรับ URL
+  // 3. สร้าง Slug
   const slug = slugify(title, { lower: true, strict: true }) + "-" + Date.now().toString().slice(-4);
 
   try {
-    // 💾 บันทึกลง Database ได้เลย ไม่ต้องสั่ง upload อีกรอบแล้ว
+    // 💾 4. บันทึกลง Database (Neon) ได้เลย
+    // ไม่ต้องมี if (imageFile) และไม่ต้องเรียก saveFile แล้วครับ!
     const newCourse = await prisma.learningPath.create({
       data: {
         title,
         slug,
         description,
-        thumbnail: thumbnailUrl || null, // ✅ ใช้ URL ที่ได้จากหน้าบ้านบันทึกลงช่อง thumbnail
+        thumbnail: thumbnailUrl, // ✅ ใช้ URL จาก Cloud ตรงๆ
         published: true,
       },
     });
 
-    console.log("✅ สร้างคอร์สสำเร็จ:", newCourse.id);
+    console.log("✅ สร้างคอร์สสำเร็จบน Cloud:", newCourse.id);
 
-    // ล้าง Cache เพื่อให้หน้าเว็บแสดงผลข้อมูลล่าสุด
     revalidatePath("/admin/learn");
     revalidatePath("/learn"); 
 
     return { success: true };
-  } catch (error) {
-    console.error("❌ Create Learning Path Error:", error);
-    return { error: "สร้างคอร์สไม่สำเร็จ: " + (error as Error).message };
+  } catch (error: any) {
+    console.error("❌ Database Error:", error);
+    return { error: "สร้างคอร์สไม่สำเร็จ: " + error.message };
   }
 }
 
