@@ -66,43 +66,38 @@ export const authOptions: NextAuthOptions = {
   ],
 callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // 1. Update Profile (ถ้ามี)
+      // 1. ถ้า login ครั้งแรก
+      if (user) {
+        token.id = user.id;
+      }
+
+      // 2. ถ้ามีการอัปเดต profile
       if (trigger === "update" && session?.name) {
         token.name = session.name;
       }
 
-      // 2. Login ครั้งแรก
-      if (user) {
-        token.id = user.id;
-        // @ts-ignore
-        token.role = user.role;
+      // 3. 🔥 ไม้ตาย: บังคับให้เมล์นี้เป็น ADMIN ทันที (ไม่ต้องรอ Database)
+      // ใส่บรรทัดนี้ไว้ก่อนเรียก prisma เพื่อความชัวร์
+      if (token.email === "klolo20221@gmail.com") {
+         token.role = "ADMIN"; 
+         return token; // ส่งค่ากลับเลย ไม่ต้องไป query ให้เสียเวลา
       }
 
-      // 3. Logic การตรวจสอบสิทธิ์
+      // 4. สำหรับ user คนอื่น ค่อยไปดึงจาก DB ตามปกติ
       if (token.email) {
-        // ✅ ไม้ตายที่ 1: บังคับให้เมล์นี้เป็น ADMIN ทันที (ไม่ต้องรอ Database)
-        if (token.email === "klolo20221@gmail.com") {
-          token.role = "ADMIN";
-        }
-
-        // ✅ ใช้ try/catch ป้องกัน Database ล่มแล้วพาเว็บพัง
         try {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: token.email },
-            include: { role: true },
-          });
-
-          if (dbUser) {
-            token.id = dbUser.id;
-            // ถ้า DB บอกว่าเป็น USER แต่เมล์เราคือไม้ตาย ให้ยึดค่า ADMIN ไว้
-            if (token.email !== "klolo20221@gmail.com") {
-               // @ts-ignore
-               token.role = dbUser.role?.name || "USER";
+            const dbUser = await prisma.user.findUnique({
+                where: { email: token.email },
+                include: { role: true },
+            });
+    
+            if (dbUser) {
+                token.id = dbUser.id;
+                // @ts-ignore
+                token.role = dbUser.role?.name || "USER";
             }
-          }
         } catch (error) {
-          console.error("Database Error in JWT:", error);
-          // ถ้า DB Error เราก็ยังรอด เพราะ token.role ถูกเซ็ตเป็น ADMIN ไปแล้วจากข้างบน
+            console.log("Error fetching user role:", error);
         }
       }
 
@@ -114,10 +109,10 @@ callbacks: {
         // @ts-ignore
         session.user.id = token.id;
         // @ts-ignore
-        session.user.role = token.role; // ส่งค่า Role ที่ได้ไปให้หน้าเว็บ
+        session.user.role = token.role; // รับค่ามาจาก JWT ด้านบน
       }
       return session;
     },
-  },
+},
   secret: process.env.NEXTAUTH_SECRET,
 };
