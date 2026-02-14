@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Save, ArrowLeft, Loader2, GraduationCap, Type, AlignLeft, X } from "lucide-react";
 import Link from "next/link";
-import { UploadButton } from "@/utils/uploadthing"; // ✅ มั่นใจว่า path นี้ถูกต้องตามโปรเจกต์คุณ
+import { UploadButton } from "../../../utils/uploadthing"; // ✅ มั่นใจว่า path นี้ถูกต้องตามโปรเจกต์คุณ
 
 export default function CreateCoursePage() {
   const [loading, setLoading] = useState(false);
