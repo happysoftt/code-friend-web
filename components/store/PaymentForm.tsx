@@ -8,7 +8,7 @@ import PromptPayQRCode from "@/components/checkout/PromptPayQRCode"; // เช�
 import toast from "react-hot-toast";
 // ✅ 1. Import uploadFiles (ตรวจสอบ path utils ให้ถูกต้อง)
 import { UploadButton } from "../../app/utils/uploadthing";
-
+import { uploadFiles } from "../../app/utils/uploadthing";
 interface PaymentFormProps {
   productId: string;
   price: number;
