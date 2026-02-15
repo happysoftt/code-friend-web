@@ -3,9 +3,11 @@
 import { createProduct, updateProduct, getProduct } from "@/lib/actions"; 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import { PackagePlus, Save, ArrowLeft, Image as ImageIcon, Link as LinkIcon, DollarSign, Loader2, Sparkles, FolderTree, AlignLeft, Type } from "lucide-react";
+import { PackagePlus, Save, ArrowLeft, Image as ImageIcon, Link as LinkIcon, DollarSign, Loader2, Sparkles, FolderTree, AlignLeft, Type, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+// ✅ เพิ่ม Import UploadButton
+import { UploadButton } from "../../../../utils/uploadthing"; 
 
 interface Category {
   id: string;
@@ -15,15 +17,15 @@ interface Category {
 function ProductForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const productId = searchParams.get("id"); // รับ ID จาก URL ?id=... เพื่อดูว่าเป็นโหมดแก้ไขไหม
+  const productId = searchParams.get("id");
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
+  // ✅ เปลี่ยนจาก preview เฉยๆ เป็น imageUrl เพื่อเก็บ URL จริงที่จะส่งไป DB
+  const [imageUrl, setImageUrl] = useState<string>(""); 
   const [categories, setCategories] = useState<Category[]>([]);
   const [isFree, setIsFree] = useState(false);
 
-  // ✅ แก้ไข: เปลี่ยน name เป็น title
   const [formDataState, setFormDataState] = useState({
     title: "", 
     price: "",
@@ -32,30 +34,28 @@ function ProductForm() {
     categoryId: ""
   });
 
-  // 1. ดึงหมวดหมู่ และ ข้อมูลสินค้า (ถ้ามี ID)
   useEffect(() => {
     const initData = async () => {
       setFetching(true);
       try {
-        // ดึงหมวดหมู่
         const catRes = await fetch('/api/categories');
         if (catRes.ok) {
           setCategories(await catRes.json());
         }
 
-        // ถ้ามี productId แสดงว่าเป็นการ "แก้ไข" -> ให้ดึงข้อมูลเก่ามาใส่
         if (productId) {
           const product = await getProduct(productId);
           if (product) {
             setFormDataState({
-              title: product.title || "",  // ✅ ใช้ title
+              title: product.title || "",
               price: product.price.toString(),
               description: product.description || "",
               fileUrl: product.downloadUrl || product.fileUrl || "",
               categoryId: product.categoryId || ""
             });
             setIsFree(product.isFree || Number(product.price) === 0);
-            if (product.image) setPreview(product.image);
+            // ✅ Set รูปภาพเดิมถ้ามี
+            if (product.image) setImageUrl(product.image);
           }
         }
       } catch (error) {
@@ -68,14 +68,6 @@ function ProductForm() {
     initData();
   }, [productId]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPreview(URL.createObjectURL(file));
-    }
-  };
-
-  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormDataState(prev => ({ ...prev, [name]: value }));
@@ -83,17 +75,25 @@ function ProductForm() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    
+    // ✅ เช็คว่ามีรูปหรือยัง
+    if (!imageUrl) {
+        alert("กรุณาอัปโหลดรูปภาพสินค้าก่อนครับ");
+        return;
+    }
+
     setLoading(true);
     
     const formData = new FormData(e.currentTarget);
     
+    // ✅ ยัด URL รูปภาพลงไปใน FormData แทนไฟล์ดิบ
+    formData.set("image", imageUrl); 
+    
     let result;
     if (productId) {
-        // กรณีแก้ไข
         formData.append("id", productId);
         result = await updateProduct(formData);
     } else {
-        // กรณีสร้างใหม่
         result = await createProduct(formData);
     }
 
@@ -148,7 +148,6 @@ function ProductForm() {
                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1 flex items-center gap-2">
                     <Type size={14} /> ชื่อสินค้า
                 </label>
-                {/* ✅ แก้ไข: name="title" และ value={formDataState.title} */}
                 <input 
                     name="title" 
                     value={formDataState.title}
@@ -204,8 +203,8 @@ function ProductForm() {
                 <h3 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">ดำเนินการ</h3>
                 <button 
                     type="submit" 
-                    disabled={loading} 
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    disabled={loading || !imageUrl}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {loading ? <Loader2 className="animate-spin" /> : <><Save size={20} /> {productId ? "บันทึกการแก้ไข" : "ลงขายสินค้า"}</>}
                 </button>
@@ -270,34 +269,44 @@ function ProductForm() {
                 </div>
             </div>
 
-            {/* Image Upload */}
+            {/* ✅ Image Upload (UploadThing) */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
                 <h3 className="text-white font-bold mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
                     <ImageIcon size={16} className="text-emerald-500" /> รูปปกสินค้า
                 </h3>
                 
-                <div className={`border-2 border-dashed rounded-xl overflow-hidden transition-all relative group ${preview ? 'border-emerald-500/50' : 'border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800/50'}`}>
-                    <input 
-                        type="file" 
-                        name="image" 
-                        accept="image/*" 
-                        onChange={handleImageChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
-                    />
+                <div className={`border-2 border-dashed rounded-xl overflow-hidden transition-all relative group p-4 flex flex-col items-center justify-center ${imageUrl ? 'border-emerald-500/50' : 'border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800/50'}`}>
                     
-                    {preview ? (
-                        <div className="relative aspect-video">
-                            <Image src={preview} alt="Preview" fill className="object-cover" />
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold z-10 pointer-events-none">
-                                คลิกเพื่อเปลี่ยนรูป
-                            </div>
+                    {imageUrl ? (
+                        <div className="relative w-full aspect-video rounded-lg overflow-hidden">
+                            <Image src={imageUrl} alt="Preview" fill className="object-cover" />
+                            {/* ปุ่มลบรูป */}
+                            <button 
+                                type="button"
+                                onClick={() => setImageUrl("")}
+                                className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white p-1.5 rounded-full transition-all"
+                            >
+                                <X size={16} />
+                            </button>
                         </div>
                     ) : (
-                        <div className="p-8 text-center">
-                            <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-colors">
-                                <ImageIcon size={24} className="text-slate-500 group-hover:text-emerald-400" />
-                            </div>
-                            <span className="text-slate-400 text-sm font-medium">อัปโหลดรูปภาพ</span>
+                        <div className="flex flex-col items-center">
+                            {/* ✅ ปุ่ม UploadThing */}
+                            <UploadButton
+                                endpoint="imageUploader"
+                                onClientUploadComplete={(res) => {
+                                    setImageUrl(res[0].url);
+                                    alert("อัปโหลดสำเร็จ!");
+                                }}
+                                onUploadError={(error: Error) => {
+                                    alert(`Error: ${error.message}`);
+                                }}
+                                appearance={{
+                                    button: "bg-emerald-600 hover:bg-emerald-500 focus-within:ring-emerald-600 after:bg-emerald-600",
+                                    container: "p-2",
+                                    allowedContent: "text-slate-400 text-xs"
+                                }}
+                            />
                         </div>
                     )}
                 </div>
@@ -309,8 +318,6 @@ function ProductForm() {
   );
 }
 
-
-// Wrap Component with Suspense
 export default function CreateStoreProductPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-emerald-500"><Loader2 className="animate-spin" size={40} /></div>}>
