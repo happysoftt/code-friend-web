@@ -10,10 +10,12 @@ export async function GET(
   const { id: productId } = await params;
   const session = await getServerSession(authOptions);
 
+  // 1. เช็ค Login
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // 2. ดึงข้อมูลสินค้า
   const product = await prisma.product.findUnique({
     where: { id: productId },
   });
@@ -22,15 +24,24 @@ export async function GET(
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
 
-  const isFree = Number(product.price) === 0 || product.isFree;
-  let canDownload = isFree;
 
-  if (!canDownload && session.user.role !== "ADMIN") {
+  let canDownload = false;
+
+  if (session.user.role === "ADMIN") {
+    canDownload = true;
+  } 
+ 
+  else if (product.isFree || Number(product.price) === 0) {
+    canDownload = true;
+  } 
+
+  else {
     const order = await prisma.order.findFirst({
       where: {
         userId: session.user.id,
         productId: productId,
-        status: "COMPLETED",
+        
+        status: "COMPLETED", 
       },
     });
 
@@ -39,9 +50,14 @@ export async function GET(
     }
   }
 
+
   if (!canDownload) {
-    return NextResponse.json({ error: "Forbidden: You do not own this product" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Forbidden: คุณยังไม่ได้สั่งซื้อสินค้านี้ หรือรอการตรวจสอบยอดเงิน" }, 
+      { status: 403 }
+    );
   }
+
 
   const targetUrl = product.fileUrl || product.downloadUrl;
 
@@ -49,14 +65,27 @@ export async function GET(
     return NextResponse.json({ error: "File link not found" }, { status: 404 });
   }
 
+
   try {
-      prisma.product.update({
+      
+      await prisma.product.update({
           where: { id: productId },
           data: { downloadCount: { increment: 1 } }
-      }).catch(() => {});
+      });
+
+  
+      await prisma.downloadHistory.create({
+        data: {
+            userId: session.user.id,
+            productId: productId,
+            ipAddress: request.headers.get("x-forwarded-for") || "unknown"
+        }
+      });
   } catch (e) {
-      // Ignore stats error
+      console.error("Stats Error:", e);
+     
   }
+
 
   return NextResponse.redirect(targetUrl);
 }
