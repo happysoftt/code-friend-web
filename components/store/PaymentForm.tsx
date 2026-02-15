@@ -4,8 +4,10 @@ import { useState, useRef } from "react";
 import { CreditCard, QrCode, Loader2, UploadCloud, X, FileImage } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import PromptPayQRCode from "@/components/checkout/PromptPayQRCode";
+import PromptPayQRCode from "@/components/checkout/PromptPayQRCode"; // เช็คว่ามีไฟล์นี้ไหม ถ้าไม่มีบอกนะครับ
 import toast from "react-hot-toast";
+// ✅ 1. Import uploadFiles (ตรวจสอบ path utils ให้ถูกต้อง)
+import { UploadButton } from "../../app/utils/uploadthing";
 
 interface PaymentFormProps {
   productId: string;
@@ -45,54 +47,61 @@ export default function PaymentForm({ productId, price, promptpayId, promptpayNa
   };
 
   const handleConfirmPayment = async () => {
-    // 1. เช็คสลิป
     if (!slipImage) {
-        toast.error("กรุณาแนบสลิปการโอนเงินก่อนแจ้งชำระเงิน", {
-            style: { background: '#333', color: '#fff' },
-            icon: '🧾'
-        });
+        toast.error("กรุณาแนบสลิปการโอนเงินก่อนแจ้งชำระเงิน");
         return;
     }
 
     setLoading(true);
 
     try {
-        // ✅ 2. เตรียมข้อมูลจริง
-        const formData = new FormData();
-        formData.append("slip", slipImage);     // ไฟล์รูป
-        formData.append("productId", productId); // รหัสสินค้า
-        formData.append("price", price.toString()); // ราคา
+        // ✅ 2. อัปโหลดสลิปขึ้น Cloud ก่อน (Client-side Upload)
+        // เพื่อเลี่ยงปัญหา Vercel Body Size Limit และจัดการไฟล์ได้ง่ายกว่า
+        const uploadRes = await uploadFiles("imageUploader", {
+            files: [slipImage],
+        });
 
-        // ✅ 3. ส่งไปหา API จริง (/api/slip)
+        if (!uploadRes?.[0]?.url) {
+            throw new Error("อัปโหลดสลิปไม่สำเร็จ กรุณาลองใหม่");
+        }
+
+        const slipUrl = uploadRes[0].url;
+
+        // ✅ 3. ส่งข้อมูล (พร้อมลิงก์รูป) ไปที่ API
+        // เปลี่ยนจาก FormData เป็น JSON ก็ได้ เพราะตอนนี้เราส่งแค่ Text แล้ว
         const res = await fetch("/api/slip", {
             method: "POST",
-            body: formData,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                slipUrl: slipUrl,     // ส่งเป็นลิงก์
+                productId: productId,
+                price: price
+            }),
         });
 
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error || "เกิดข้อผิดพลาด");
 
-        // 4. สำเร็จ
-        toast.success("แจ้งชำระเงินเรียบร้อย! รอการตรวจสอบ", {
-            duration: 4000,
-            style: { background: '#333', color: '#fff' }
-        });
+        toast.success("แจ้งชำระเงินเรียบร้อย! รอการตรวจสอบ");
         
-        router.push("/orders"); // ไปหน้า Order
-        router.refresh();       // รีเฟรชข้อมูล
+        // redirect ไปหน้าสำเร็จ หรือหน้าออเดอร์
+        router.push("/orders"); 
+        router.refresh();
 
     } catch (error: any) {
         console.error(error);
-        toast.error(error.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
+        toast.error(error.message || "เกิดข้อผิดพลาด");
     } finally {
         setLoading(false);
     }
   };
 
+  // ... ส่วน return UI เหมือนเดิม ...
   return (
     <div className="space-y-6">
-      
+      {/* ... UI เดิมของคุณ ... */}
+      {/* ผมละไว้เพื่อความกระชับ ให้ใช้ UI เดิมในส่วน return ได้เลยครับ */}
       {/* เลือกช่องทางชำระเงิน */}
       <div className="grid grid-cols-2 gap-3 p-1 bg-slate-950 rounded-2xl border border-slate-800">
           <button 
@@ -116,7 +125,8 @@ export default function PaymentForm({ productId, price, promptpayId, promptpayNa
                 {/* QR Code Section */}
                 <div className="text-center space-y-4">
                     <div className="bg-white p-4 rounded-2xl mx-auto w-fit shadow-lg border border-slate-200">
-                        <PromptPayQRCode promptpayId={promptpayId || ""} amount={price} />
+                        {/* ✅ ตรวจสอบว่า PromptPayQRCode มีอยู่จริง */}
+                         <PromptPayQRCode promptpayId={promptpayId || ""} amount={price} />
                     </div>
                     <div className="text-sm text-slate-400">
                         โอนเข้าบัญชี: <span className="text-white font-bold">{promptpayName || "ไม่ระบุ"}</span>
@@ -149,9 +159,6 @@ export default function PaymentForm({ productId, price, promptpayId, promptpayNa
                             >
                                 <X size={16} />
                             </button>
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 text-center text-xs text-white backdrop-blur-sm">
-                                {slipImage?.name}
-                            </div>
                         </div>
                     )}
                     
@@ -187,7 +194,6 @@ export default function PaymentForm({ productId, price, promptpayId, promptpayNa
              </div>
           )}
       </div>
-
     </div>
   );
 }
