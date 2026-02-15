@@ -3,29 +3,35 @@
 import { updateProduct } from "@/lib/actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Package, ArrowLeft, Loader2, Image as ImageIcon, X } from "lucide-react";
+import { Save, Package, ArrowLeft, Loader2, Image as ImageIcon, X, FolderTree } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-// ✅ Import UploadButton
+// ✅ Import แบบ Relative Path ที่ถูกต้อง
 import { UploadButton } from "../../app/utils/uploadthing";
 
+// ✅ 1. เพิ่ม Type Category
+interface Category {
+  id: string;
+  name: string;
+}
 
-// กำหนด Type ของข้อมูลสินค้า
+// ✅ 2. อัปเดต Type Product
 interface Product {
   id: string;
   title: string;
   description: string;
   price: number;
-  image: string | null; // หรือ fileUrl
+  image: string | null;
   isFree: boolean;
   isActive: boolean;
   slug: string;
+  categoryId: string | null;
 }
 
-export default function EditProductForm({ product }: { product: Product }) {
+// ✅ 3. แก้ตรงนี้ให้รับ categories: Category[] เพิ่มเข้ามา
+export default function EditProductForm({ product, categories }: { product: Product, categories: Category[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  // ✅ เก็บ State รูปภาพ (เริ่มจากรูปเดิมใน DB)
   const [imageUrl, setImageUrl] = useState<string>(product.image || "");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -33,10 +39,8 @@ export default function EditProductForm({ product }: { product: Product }) {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    // ✅ ส่ง URL รูปไปด้วย
     formData.set("image", imageUrl); 
     
-    // แปลงค่า checkbox เป็น string เพื่อให้ Server Action เข้าใจง่ายขึ้น (optional)
     if (!formData.get("isFree")) formData.set("isFree", "false");
     if (!formData.get("isActive")) formData.set("isActive", "false");
 
@@ -122,6 +126,25 @@ export default function EditProductForm({ product }: { product: Product }) {
                         <input type="checkbox" name="isActive" defaultChecked={product.isActive} className="w-5 h-5 accent-green-500" />
                         <span className="text-white">วางขาย / เผยแพร่ (Active)</span>
                     </label>
+                </div>
+            </div>
+
+            {/* ✅ เพิ่ม Dropdown เลือกหมวดหมู่ */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
+                <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1 flex items-center gap-2">
+                    <FolderTree size={14} /> หมวดหมู่
+                </label>
+                <div className="relative">
+                    <select 
+                        name="categoryId" 
+                        defaultValue={product.categoryId || ""}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white appearance-none cursor-pointer focus:outline-none focus:border-pink-500 transition-all"
+                    >
+                        <option value="">-- เลือกหมวดหมู่ --</option>
+                        {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
         </div>
