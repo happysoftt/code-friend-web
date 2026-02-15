@@ -7,7 +7,8 @@ import { Save, Package, ArrowLeft, Loader2, Image as ImageIcon, X } from "lucide
 import Link from "next/link";
 import Image from "next/image";
 // ✅ Import UploadButton
-import { UploadButton } from "@/utils/uploadthing";
+import { UploadButton } from "../../app/utils/uploadthing";
+
 
 // กำหนด Type ของข้อมูลสินค้า
 interface Product {

@@ -7,8 +7,7 @@ import { Save, FileText, Image as ImageIcon, AlignLeft, ArrowLeft, Loader2, X } 
 import Link from "next/link";
 import Image from "next/image";
 // ✅ Import UploadButton (ตรวจสอบ path ให้ตรงกับโปรเจกต์ของคุณ)
-import { UploadButton } from "@/utils/uploadthing";
-
+import { UploadButton } from "../../app/utils/uploadthing";
 // กำหนด Type ของข้อมูลบทความที่รับเข้ามา
 interface Article {
   id: string;
