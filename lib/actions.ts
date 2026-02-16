@@ -281,6 +281,7 @@ export async function updateProduct(formData: FormData) {
   const description = formData.get("description") as string;
   const price = parseFloat(formData.get("price") as string) || 0;
   const isFree = formData.get("isFree") === "true" || formData.get("isFree") === "on";
+  const isActive = formData.get("isActive") === "true" || formData.get("isActive") === "on";
   const categoryId = formData.get("categoryId") as string;
   
   const downloadUrl = (formData.get("downloadUrl") || formData.get("fileUrl")) as string;
@@ -292,6 +293,7 @@ export async function updateProduct(formData: FormData) {
       description,
       price,
       isFree,
+      isActive,
       categoryId: categoryId || null,
     };
 
