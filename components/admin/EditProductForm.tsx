@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { Save, Package, ArrowLeft, Loader2, Image as ImageIcon, X, FolderTree } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { UploadButton } from "../../app/utils/uploadthing";
-
+import { UploadButton } from "@/app/utils/uploadthing";
 //  Type Category
 interface Category {
   id: string;

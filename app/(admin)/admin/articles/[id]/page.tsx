@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import EditArticleForm from "@/components/admin/EditArticleForm"; // ✅ เรียกใช้ Form ที่เราเพิ่งสร้าง
+import EditArticleForm from "../../../../../components/admin/EditArticleForm"; // ✅ เรียกใช้ Form ที่เราเพิ่งสร้าง
 
 export default async function EditArticlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
