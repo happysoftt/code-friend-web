@@ -1,6 +1,6 @@
 "use server";
 
-
+import { awardXP, XP_RATES } from "@/lib/gamification";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import slugify from "slugify";
@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
-import { sendOrderApprovedEmail } from "@/lib/mail";
+import { sendOrderApprovedEmail } from "@/lib/mail"; // ตรวจสอบว่ามีไฟล์นี้
 import { Resend } from "resend";
 import { v4 as uuidv4 } from "uuid";
 
@@ -192,8 +192,6 @@ export async function updateProfile(formData: FormData) {
   const website = formData.get("website") as string;
   const github = formData.get("github") as string;
   const facebook = formData.get("facebook") as string;
-  
-  // ✅ แก้ไข: รับ URL จากหน้าบ้าน
   const imageUrl = formData.get("image") as string; 
 
   try {
@@ -234,7 +232,7 @@ export async function updateProfile(formData: FormData) {
 }
 
 // ---------------------------------------------------------
-// 2. PRODUCT & STORE MANAGEMENT (แก้ให้รับ URL ทั้งหมด)
+// 2. PRODUCT & STORE MANAGEMENT
 // ---------------------------------------------------------
 
 export async function createProduct(formData: FormData) {
@@ -246,7 +244,6 @@ export async function createProduct(formData: FormData) {
   const price = parseFloat(formData.get("price") as string) || 0;
   const categoryId = formData.get("categoryId") as string;
   
-  // ✅ แก้ไข: รับ URL ตรงๆ
   const imageUrl = formData.get("image") as string;   
   const fileUrl = formData.get("file") as string;     
 
@@ -286,7 +283,6 @@ export async function updateProduct(formData: FormData) {
   const isFree = formData.get("isFree") === "true" || formData.get("isFree") === "on";
   const categoryId = formData.get("categoryId") as string;
   
-  // ✅ แก้ไข: รับ URL
   const downloadUrl = (formData.get("downloadUrl") || formData.get("fileUrl")) as string;
   const imageUrl = formData.get("image") as string; 
 
@@ -384,7 +380,7 @@ export async function trackDownload(productId: string) {
 }
 
 // ---------------------------------------------------------
-// 3. ORDER & PAYMENT (แก้ให้รับ URL)
+// 3. ORDER & PAYMENT
 // ---------------------------------------------------------
 
 export async function createOrder(productId: string) {
@@ -416,8 +412,6 @@ export async function submitPaymentSlip(formData: FormData) {
   if (!session) return { error: "Unauthorized" };
 
   const productId = formData.get("productId") as string;
-  
-  // ✅ แก้ไข: รับ URL สลิป
   const slipUrl = formData.get("slip") as string;
   
   if (!slipUrl) return { error: "กรุณาแนบสลิปโอนเงิน" };
@@ -432,7 +426,7 @@ export async function submitPaymentSlip(formData: FormData) {
         productId: product.id,
         total: product.price,
         status: "WAITING_VERIFY",
-        slipUrl: slipUrl, // บันทึก URL
+        slipUrl: slipUrl,
       },
     });
 
@@ -442,6 +436,7 @@ export async function submitPaymentSlip(formData: FormData) {
   }
 }
 
+// ✅ อนุมัติแบบปกติ (Admin กด Manual) - เพิ่มแจก XP
 export async function approveOrder(orderId: string) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
@@ -453,6 +448,7 @@ export async function approveOrder(orderId: string) {
       include: { user: true, product: true },
     });
 
+    // 1. สร้าง License Key
     const licenseKey = `KEY-${uuidv4().toUpperCase().slice(0, 18)}`;
     await prisma.licenseKey.create({
       data: {
@@ -462,6 +458,7 @@ export async function approveOrder(orderId: string) {
       },
     });
 
+    // 2. ส่งอีเมล
     if (order.user.email) {
       await sendOrderApprovedEmail(
         order.user.email,
@@ -469,6 +466,11 @@ export async function approveOrder(orderId: string) {
         order.product.title,
         order.id
       );
+    }
+
+    // 3. ✅ แจก XP (+200)
+    if (order.user) {
+        await awardXP(order.user.id, XP_RATES.BUY_PRODUCT, "สั่งซื้อสินค้าสำเร็จ");
     }
 
     revalidatePath("/admin/orders");
@@ -493,14 +495,22 @@ export async function rejectOrder(orderId: string) {
   }
 }
 
+// ✅ อนุมัติผ่านหน้า Admin Action Component - เพิ่มแจก XP
 export async function updateOrderStatus(orderId: string, newStatus: any) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
   try {
-    await prisma.order.update({
+    const order = await prisma.order.update({
       where: { id: orderId },
       data: { status: newStatus },
+      include: { user: true }
     });
+
+    // ✅ แจก XP ถ้าสถานะเป็น COMPLETED
+    if (newStatus === "COMPLETED" && order.userId) {
+         await awardXP(order.userId, XP_RATES.BUY_PRODUCT, "สั่งซื้อสินค้าสำเร็จ");
+    }
+
     revalidatePath("/admin/orders");
     return { success: true };
   } catch (error) {
@@ -509,7 +519,7 @@ export async function updateOrderStatus(orderId: string, newStatus: any) {
 }
 
 // ---------------------------------------------------------
-// 4. ARTICLE & CONTENT (แก้ให้รับ URL)
+// 4. ARTICLE & CONTENT
 // ---------------------------------------------------------
 
 export async function createArticle(formData: FormData) {
@@ -519,8 +529,6 @@ export async function createArticle(formData: FormData) {
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
   const excerpt = formData.get("excerpt") as string;
-  
-  // ✅ แก้ไข: รับ URL
   const coverImage = formData.get("image") as string; 
 
   if (!title || !content) return { error: "กรุณากรอกข้อมูลให้ครบ" };
@@ -541,7 +549,7 @@ export async function createArticle(formData: FormData) {
         slug,
         content,
         excerpt,
-        coverImage: coverImage || null, // บันทึก URL
+        coverImage: coverImage || null,
         published: true,
         authorId: (session.user as any).id,
         categoryId: category.id,
@@ -563,8 +571,6 @@ export async function updateArticle(formData: FormData) {
   const id = formData.get("id") as string;
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
-  
-  // ✅ แก้ไข: รับ URL
   const coverImage = formData.get("coverImage") as string; 
 
   try {
@@ -600,7 +606,7 @@ export async function deleteArticle(id: string) {
 }
 
 // ---------------------------------------------------------
-// 5. LEARNING PATH & LESSONS (แก้แล้ว - พระเอกของเรา)
+// 5. LEARNING PATH & LESSONS
 // ---------------------------------------------------------
 export async function createLearningPath(formData: FormData) {
   const session = await getServerSession(authOptions);
@@ -608,8 +614,6 @@ export async function createLearningPath(formData: FormData) {
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
-  
-  // ✅ รับ URL 100%
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   if (!title) return { error: "กรุณาระบุชื่อคอร์ส" };
@@ -623,7 +627,7 @@ export async function createLearningPath(formData: FormData) {
         title,
         slug,
         description,
-        thumbnail: thumbnailUrl, // บันทึก URL
+        thumbnail: thumbnailUrl,
         published: true,
       },
     });
@@ -644,8 +648,6 @@ export async function updateLearningPath(formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const published = formData.get("published") === "true";
-  
-  // ✅ แก้ไข: รับ URL
   const thumbnailUrl = formData.get("thumbnail") as string; 
 
   try {
@@ -756,7 +758,7 @@ export async function deleteLesson(lessonId: string, courseId: string) {
 }
 
 // ---------------------------------------------------------
-// 6. COMMUNITY (SHOWCASE, SNIPPET, COMMENT) - แก้ให้รับ URL
+// 6. COMMUNITY (SHOWCASE, SNIPPET, COMMENT)
 // ---------------------------------------------------------
 
 export async function submitShowcase(formData: FormData) {
@@ -767,8 +769,6 @@ export async function submitShowcase(formData: FormData) {
   const description = formData.get("description") as string;
   const demoUrl = formData.get("demoUrl") as string;
   const githubUrl = formData.get("githubUrl") as string;
-  
-  // ✅ แก้ไข: รับ URL
   const imageUrl = formData.get("image") as string; 
 
   if (!title) return { error: "กรุณากรอกข้อมูลให้ครบ" };
@@ -778,14 +778,18 @@ export async function submitShowcase(formData: FormData) {
       data: {
         title,
         description,
-        image: imageUrl || "", // บันทึก URL
+        image: imageUrl || "", 
         demoUrl,
         githubUrl,
         userId: (session.user as any).id,
         approved: false,
       },
     });
-
+    
+    // ✅ แจก XP (+100)
+    await awardXP((session.user as any).id, XP_RATES.SUBMIT_SHOWCASE, "ส่งผลงาน Showcase");
+    
+    // เช็ค Badge ผลงานแรก
     const count = await prisma.showcase.count({ where: { userId: (session.user as any).id } });
     if (count === 1) await checkAndAwardBadges((session.user as any).id, "FIRST_SHOWCASE");
 
@@ -823,11 +827,17 @@ export async function toggleShowcaseLike(showcaseId: string) {
     });
 
     if (existingLike) {
+      // Unlike
       await prisma.showcaseLike.delete({ where: { id: existingLike.id } });
       revalidatePath(`/showcase/${showcaseId}`);
       return { liked: false };
     } else {
+      // Like
       await prisma.showcaseLike.create({ data: { userId, showcaseId } });
+      
+      // ✅ แจก XP (+1) (ย้ายมาไว้ตรงนี้ก่อน return)
+      await awardXP(userId, XP_RATES.LIKE, "กดไลก์ผลงาน");
+
       revalidatePath(`/showcase/${showcaseId}`);
       return { liked: true };
     }
@@ -873,6 +883,9 @@ export async function createSnippet(formData: FormData) {
         authorId: (session.user as any).id,
       },
     });
+
+    // ✅ แจก XP (+50)
+    await awardXP((session.user as any).id, XP_RATES.CREATE_SNIPPET, "สร้าง Snippet");
 
     await prisma.snippetVersion.create({
       data: {
@@ -945,10 +958,8 @@ export async function createComment(data: {
         }
     }
 
-    await prisma.user.update({
-        where: { id: (session.user as any).id },
-        data: { xp: { increment: 10 } },
-    });
+    // ✅ แจก XP (+5) (ใช้ function awardXP แทนการ update ตรงๆ)
+    await awardXP((session.user as any).id, XP_RATES.COMMENT, "คอมเมนต์");
 
     if (showcaseId) revalidatePath(`/showcase/${showcaseId}`);
     if (articleId) revalidatePath(`/articles/${articleId}`);

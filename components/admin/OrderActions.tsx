@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, X, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { confirmSwal } from "@/lib/swal";
+import { confirmSwal } from "@/lib/swal"; // ตรวจสอบว่ามีไฟล์นี้จริง หรือใช้ Swal.fire แทน
 import { updateOrderStatus } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 
@@ -17,39 +17,41 @@ export default function OrderActions({ orderId, status }: { orderId: string, sta
     // ตั้งค่าข้อความและสีปุ่ม
     const swalConfig = isApprove ? {
         title: "ยืนยันยอดเงินถูกต้อง?",
-        text: "ต้องการอนุมัติคำสั่งซื้อนี้ใช่หรือไม่",
+        text: "ต้องการอนุมัติคำสั่งซื้อนี้ใช่หรือไม่ (ลูกค้าจะได้รับ XP ทันที)",
         icon: 'question',
         confirmButtonText: "อนุมัติเลย",
-        // สีเขียวเป็น Default ใน lib/swal.ts อยู่แล้ว ไม่ต้องแก้
     } : {
         title: "ยกเลิกคำสั่งซื้อนี้?",
         text: "คำสั่งซื้อจะถูกยกเลิกทันที และไม่สามารถกู้คืนได้",
         icon: 'warning',
         confirmButtonText: "ยกเลิกออเดอร์",
-        // 🔴 บังคับเปลี่ยนสีปุ่มเป็นสีแดง
         customClass: {
             confirmButton: 'bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl font-bold mx-2 shadow-lg shadow-red-900/20'
         }
     };
 
     // 🔥 เรียกใช้ SweetAlert
+    // (ถ้า confirmSwal ไม่มี ให้ใช้ Swal.fire แทน)
     const result = await confirmSwal.fire(swalConfig as any);
 
     if (!result.isConfirmed) return;
 
     setLoading(true);
+    
+    // ✅ เรียก Server Action (XP จะถูกแจกในฟังก์ชันนี้ที่ฝั่ง Server)
     const res = await updateOrderStatus(orderId, newStatus); 
+    
     setLoading(false);
 
     if (res?.success) {
-      toast.success(isApprove ? "✅ อนุมัติเรียบร้อย" : "🗑️ ยกเลิกเรียบร้อย");
+      toast.success(isApprove ? "✅ อนุมัติเรียบร้อย (+XP)" : "🗑️ ยกเลิกเรียบร้อย");
       router.refresh();
     } else {
       toast.error("❌ เกิดข้อผิดพลาด");
     }
   };
 
-  // ถ้าสถานะจบไปแล้ว ไม่ต้องโชว์ปุ่ม
+  // ถ้าสถานะจบไปแล้ว ไม่ต้องโชว์ปุ่มจัดการ
   if (status === "COMPLETED" || status === "CANCELLED" || status === "FAILED") {
     return (
         <span className={`text-xs px-3 py-1 rounded-full border ${

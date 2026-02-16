@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { checkDailyLogin } from "@/lib/gamification"; 
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -53,15 +54,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error("บัญชีถูกระงับ");
         }
 
-        // ✅ แก้ไข: ใส่ "as any" เพื่อปิดปาก TypeScript เรื่อง Type ของ Role
+        
+
         return {
           id: user.id,
-          email: user.email,
+          email: user.user.email,
           name: user.name,
           image: user.image,
-          role: user.role?.name || "USER", // เราอยากได้ String แต่ Type มันรอ Object
+          role: user.role?.name || "USER",
           roleId: user.roleId || "",
-        } as any; 
+        } as any;
       },
     }),
   ],
@@ -99,11 +101,14 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      if (session.user) {
+      if (session.user && token.sub) {
         // @ts-ignore
-        session.user.id = token.id;
+        session.user.id = token.id || token.sub; // ใช้ token.sub เป็น fallback
         // @ts-ignore
         session.user.role = token.role;
+
+        
+        await checkDailyLogin(token.sub); 
       }
       return session;
     },
