@@ -49,13 +49,13 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
 
           <div className="container mx-auto px-4 text-center relative z-10">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/50 border border-slate-700/50 text-emerald-300 text-xs font-bold mb-6 backdrop-blur-md shadow-lg shadow-emerald-900/10">
-                 <ShoppingBag size={14} /> Official Store
+                 <ShoppingBag size={14} /> Code Friend Store
             </span>
             <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
-                 Premium <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500 animate-pulse">Digital Assets</span>
+                 รวมโค้ด และระบบ <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500 animate-pulse">ที่สร้างไว้</span>
             </h1>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
-                 ยกระดับงานของคุณด้วย Source Code คุณภาพสูง, เทมเพลตพร้อมใช้ <br className="hidden md:block"/> และคอร์สเรียนระดับมืออาชีพ
+                 รวม Source Code, เทมเพลต และระบบต่าง ๆ ที่สร้างและใช้งานจริง <br className="hidden md:block"/> สำหรับคนที่อยากนำไปศึกษา ต่อยอด หรือเริ่มโปรเจกต์ของตัวเอง
             </p>
 
             <form className="max-w-xl mx-auto relative group">

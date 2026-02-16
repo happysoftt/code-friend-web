@@ -74,23 +74,23 @@ export default async function HomePage() {
                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                  </span>
-                 Community for Modern Developers
+                 A Friendly Coding Community
              </div>
 
              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 tracking-tighter leading-[1.1]">
                  <span className="bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-slate-500 drop-shadow-sm">
-                    Level Up Your
+                    Code Friend
                  </span>
                  <br/>
                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-500 animate-gradient-x">
-                    Coding Journey
+                    Start Coding Together
                  </span>
              </h1>
 
              <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed font-light">
-                 แหล่งรวม Source Code คุณภาพ, คอร์สเรียนระดับโปร, และพื้นที่ปล่อยของสำหรับนักพัฒนา 
+                 รวมโค้ด บทเรียน และโปรเจกต์ สำหรับคนที่อยากเริ่มเขียนโค้ด และพัฒนาไปด้วยกัน
                  <br className="hidden md:block"/>
-                 ยกระดับทักษะของคุณสู่อนาคต ได้แล้ววันนี้
+                 เริ่มต้นและเติบโตไปพร้อมกันทีละขั้น
              </p>
 
              <div className="flex flex-col sm:flex-row items-center justify-center gap-5">

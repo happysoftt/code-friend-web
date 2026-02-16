@@ -59,10 +59,10 @@ export default async function LearningPage({ searchParams }: { searchParams: Pro
                  <BookOpen size={14} /> Learning Center
             </span>
             <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
-                 คลังความรู้ <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 animate-pulse">ระดับโปร</span>
+                 คลังความรู้ <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 animate-pulse">สำหรับคนเริ่มเขียนโค้ด</span>
             </h1>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
-                 เรียนรู้เทคโนโลยีใหม่ๆ ผ่านบทเรียนที่เข้าใจง่าย ปฏิบัติจริง <br className="hidden md:block"/> และนำไปใช้ได้ทันที
+                 รวมสิ่งที่เราเรียนรู้ระหว่างทาง ทั้งบทเรียน ตัวอย่าง และโปรเจกต์จริง <br className="hidden md:block"/> สำหรับคนที่อยากฝึกเขียนโค้ด และค่อย ๆ เก่งขึ้นไปด้วยกัน
             </p>
 
             <form className="max-w-xl mx-auto relative group">
