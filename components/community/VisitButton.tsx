@@ -2,7 +2,7 @@
 
 import { ExternalLink, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { incrementShowcaseView } from "../..//lib/actions"; 
+import { incrementDemoClick } from "@/lib/actions";
 interface VisitButtonProps {
   showcaseId: string;
   url: string;
@@ -15,7 +15,7 @@ export const VisitButton = ({ showcaseId, url }: VisitButtonProps) => {
     setLoading(true);
     try {
 
-      await incrementShowcaseView(showcaseId); 
+      await incrementDemoClick(showcaseId); 
     } catch (error) {
       console.error(error);
     } finally {
