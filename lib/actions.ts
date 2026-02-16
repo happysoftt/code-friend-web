@@ -172,17 +172,35 @@ export async function deleteCategory(id: string) {
 
 export async function deleteUser(userId: string) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") return { error: "Unauthorized" };
+  
+  if (!session || (session.user as any).role !== "ADMIN") {
+      return { error: "Unauthorized" };
+  }
 
   try {
+    await prisma.account.deleteMany({
+        where: { userId: userId }
+    });
+
+    await prisma.session.deleteMany({
+        where: { userId: userId }
+    });
+
     await prisma.user.delete({ where: { id: userId } });
+    
     revalidatePath("/admin/users");
     return { success: true };
-  } catch (error) {
+
+  } catch (error: any) {
+    console.error("Delete User Error:", error);
+    
+    if (error.code === 'P2003') {
+        return { error: "ลบไม่ได้: ผู้ใช้นี้มีประวัติการสั่งซื้อสินค้าหรือบทความ (แนะนำให้แบนแทนการลบ)" };
+    }
+
     return { error: "ลบผู้ใช้งานไม่สำเร็จ" };
   }
 }
-
 export async function updateProfile(formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
