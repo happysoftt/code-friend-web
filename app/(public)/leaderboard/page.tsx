@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import Image from "next/image";
 import { Trophy, Medal, Crown } from "lucide-react";
 
-export const revalidate = 60;
+// ✅ แก้ไขตรงนี้: เพื่อให้เห็น XP อัปเดตทันที
+export const dynamic = 'force-dynamic'; 
 
 async function getTopRankers() {
   return await prisma.user.findMany({
@@ -35,7 +36,7 @@ export default async function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-[#020617] text-white selection:bg-yellow-500/30 font-sans pb-24">
       
-      {/* --- HERO HEADER --- */}
+      {/* ... (ส่วนแสดงผล UI ด้านล่างเหมือนเดิมทุกอย่าง ไม่ต้องแก้) ... */}
       <div className="relative pt-32 pb-12 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 to-[#020617] pointer-events-none" />
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-96 bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
@@ -178,6 +179,7 @@ export default async function LeaderboardPage() {
               </div>
             );
           })}
+          
           
           {others.length === 0 && <p className="text-center text-slate-500 py-4">ยังไม่มีผู้ใช้อื่นๆ</p>}
         </div>
