@@ -54,16 +54,14 @@ export const authOptions: NextAuthOptions = {
           throw new Error("บัญชีถูกระงับ");
         }
 
-        
-
         return {
           id: user.id,
-          email: user.user.email,
+          email: user.email, // ✅ แก้ไขตรงนี้ (ลบ .user ตรงกลางออก)
           name: user.name,
           image: user.image,
-          role: user.role?.name || "USER",
+          role: user.role?.name || "USER", 
           roleId: user.roleId || "",
-        } as any;
+        } as any; 
       },
     }),
   ],
@@ -76,10 +74,10 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         // @ts-ignore
-        token.role = user.role;
+        token.role = user.role; // เก็บ Role ไว้ใน Token
       }
 
-      // ดึง Role ล่าสุดจาก Database เสมอ
+      // ดึง Role ล่าสุดจาก Database เสมอ (เผื่อ Admin เปลี่ยน Role ให้)
       if (token.email) {
         try {
           const dbUser = await prisma.user.findUnique({
@@ -103,11 +101,11 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user && token.sub) {
         // @ts-ignore
-        session.user.id = token.id || token.sub; // ใช้ token.sub เป็น fallback
+        session.user.id = token.id || token.sub; 
         // @ts-ignore
         session.user.role = token.role;
 
-        
+        // ✅ เช็ค Daily Login ตรงนี้ (ทำงานตอน User เข้าเว็บ)
         await checkDailyLogin(token.sub); 
       }
       return session;
