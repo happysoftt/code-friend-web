@@ -6,16 +6,15 @@ import { useRouter } from "next/navigation";
 import { Save, Package, ArrowLeft, Loader2, Image as ImageIcon, X, FolderTree } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-// ✅ Import แบบ Relative Path ที่ถูกต้อง
 import { UploadButton } from "../../app/utils/uploadthing";
 
-// ✅ 1. เพิ่ม Type Category
+//  Type Category
 interface Category {
   id: string;
   name: string;
 }
 
-// ✅ 2. อัปเดต Type Product
+// Type Product
 interface Product {
   id: string;
   title: string;
@@ -26,9 +25,9 @@ interface Product {
   isActive: boolean;
   slug: string;
   categoryId: string | null;
+  fileUrl: string | null;
 }
 
-// ✅ 3. แก้ตรงนี้ให้รับ categories: Category[] เพิ่มเข้ามา
 export default function EditProductForm({ product, categories }: { product: Product, categories: Category[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -102,6 +101,21 @@ export default function EditProductForm({ product, categories }: { product: Prod
                     required
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-300 focus:outline-none focus:border-pink-500 transition-all resize-none" 
                 />
+            </div>
+
+           
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-6 rounded-2xl shadow-sm">
+                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
+                    ลิงก์ดาวน์โหลด (Google Drive / Dropbox / UploadThing)
+                </label>
+                <input 
+                    name="fileUrl" 
+                    defaultValue={product.fileUrl || ""} 
+                    required 
+                    placeholder="https://..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-blue-400 font-mono text-sm focus:outline-none focus:border-pink-500 transition-all" 
+                />
+                <p className="text-[10px] text-slate-500 mt-2">ลิงก์นี้จะถูกส่งให้ลูกค้าเมื่อชำระเงินสำเร็จ</p>
             </div>
 
             {/* Price & Options */}
