@@ -844,7 +844,8 @@ export async function incrementDemoClick(showcaseId: string) {
     });
     return { success: true };
   } catch (error) {
-    console.error(error);
+    console.error("Increment Click Error:", error);
+    return { error: "Failed to count click" };
   }
 }
 

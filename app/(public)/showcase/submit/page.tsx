@@ -4,9 +4,9 @@ import { submitShowcase } from "@/lib/actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { UploadCloud, Loader2, Image as ImageIcon, ArrowLeft, Type, AlignLeft, Globe, Github, ImagePlus } from "lucide-react";
-
-// ✅ Import ของแต่งหล่อ
+import { UploadCloud, Loader2, Image as ImageIcon, ArrowLeft, Type, AlignLeft, Globe, Github, X } from "lucide-react";
+// ✅ Import UploadButton (Import path ให้ถูกนะครับ)
+import { UploadButton } from "../../../utils/uploadthing"; 
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
@@ -16,36 +16,34 @@ const MySwal = withReactContent(Swal);
 export default function SubmitShowcasePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      setPreviewUrl(URL.createObjectURL(file));
-    }
-  };
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!imageUrl) {
+        toast.error("กรุณาอัปโหลดรูปตัวอย่างผลงานก่อนครับ");
+        return;
+    }
+
     setLoading(true);
     
     const formData = new FormData(e.currentTarget);
+    formData.set("image", imageUrl);
+
     const res = await submitShowcase(formData);
     
     setLoading(false);
 
     if (res.success) {
-        // 🎉 ใช้ SweetAlert แสดงความยินดีแบบอลังการ
         await MySwal.fire({
             title: 'ส่งผลงานสำเร็จ!',
             text: 'ขอบคุณที่ร่วมสนุก ผลงานของคุณจะแสดงหลังจากผ่านการตรวจสอบครับ',
             icon: 'success',
-            background: '#1e293b', // สีพื้นหลัง Dark Mode (Slate-800)
+            background: '#1e293b',
             color: '#fff',
             confirmButtonText: 'กลับไปดูผลงาน',
-            confirmButtonColor: '#4f46e5', // สี Indigo-600
+            confirmButtonColor: '#4f46e5',
             padding: '2em',
             customClass: {
                 popup: 'rounded-3xl border border-slate-700 shadow-2xl',
@@ -56,7 +54,6 @@ export default function SubmitShowcasePage() {
         
         router.push("/showcase");
     } else {
-        // ❌ ใช้ Toast แจ้ง Error เล็กๆ
         toast.error(res.error || "เกิดข้อผิดพลาดในการส่งข้อมูล", {
             style: {
                 background: '#0f172a',
@@ -147,35 +144,48 @@ export default function SubmitShowcasePage() {
                 </div>
             </div>
 
-            {/* Image Upload */}
+            {/*  Upload (UploadThing) */}
             <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase ml-1">รูปตัวอย่าง (Screenshot)</label>
                 
-                <div className={`border-2 border-dashed rounded-xl p-8 text-center relative transition-all group ${previewUrl ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800/50'}`}>
-                    <input 
-                        type="file" 
-                        name="image" 
-                        accept="image/*" 
-                        required 
-                        onChange={handleFileChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
-                    />
+                <div className={`border-2 border-dashed rounded-xl p-6 text-center relative transition-all group flex flex-col items-center justify-center ${imageUrl ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800/50'}`}>
                     
-                    {previewUrl ? (
-                        <div className="relative z-10">
-                            <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded-lg shadow-lg mb-2" />
-                            <p className="text-indigo-400 text-sm font-medium flex items-center justify-center gap-2">
-                                <ImagePlus size={16} /> {fileName}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">คลิกเพื่อเปลี่ยนรูป</p>
+                    {imageUrl ? (
+                        <div className="relative w-full">
+                            <img src={imageUrl} alt="Preview" className="max-h-48 mx-auto rounded-lg shadow-lg mb-2 object-cover" />
+                            <button 
+                                type="button"
+                                onClick={() => setImageUrl(null)}
+                                className="absolute top-2 right-2 bg-red-500 p-1.5 rounded-full text-white hover:bg-red-600 transition-colors shadow-lg"
+                            >
+                                <X size={14} />
+                            </button>
+                            <p className="text-xs text-slate-500 mt-1">อัปโหลดเรียบร้อย</p>
                         </div>
                     ) : (
-                        <div className="relative z-10">
-                            <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-colors">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-colors">
                                 <ImageIcon size={24} className="text-slate-500 group-hover:text-indigo-400" />
                             </div>
-                            <span className="text-slate-300 font-medium block">คลิกเพื่ออัปโหลดรูปภาพ</span>
-                            <span className="text-slate-500 text-xs mt-1 block">รองรับ JPG, PNG (Max 5MB)</span>
+                            
+                            {/* ปุ่ม UploadThing */}
+                            <UploadButton
+                                endpoint="imageUploader"
+                                onClientUploadComplete={(res) => {
+                                    setImageUrl(res[0].url);
+                                    toast.success("อัปโหลดรูปภาพสำเร็จ!");
+                                }}
+                                onUploadError={(error: Error) => {
+                                    toast.error(`Error: ${error.message}`);
+                                }}
+                                appearance={{
+                                    button: "bg-indigo-600 hover:bg-indigo-500 focus-within:ring-indigo-600 after:bg-indigo-600",
+                                    container: "p-2",
+                                    allowedContent: "text-slate-400 text-xs"
+                                }}
+                            />
+                            
+                            <span className="text-slate-500 text-xs">รองรับ JPG, PNG (Max 4MB)</span>
                         </div>
                     )}
                 </div>
@@ -184,7 +194,7 @@ export default function SubmitShowcasePage() {
             {/* Submit Button */}
             <button 
                 type="submit" 
-                disabled={loading} 
+                disabled={loading || !imageUrl} 
                 className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20 active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-4"
             >
                 {loading ? <Loader2 className="animate-spin" /> : <><UploadCloud size={20} /> ส่งผลงาน</>}
