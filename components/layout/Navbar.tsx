@@ -81,6 +81,7 @@ export default function Navbar() {
     { name: "ร้านค้า", path: "/store", icon: <ShoppingBag size={18} /> },
     { name: "คอมมูนิตี้", path: "/showcase", icon: <LayoutDashboard size={18} /> },
     { name: "แจกโค้ด", path: "/snippets", icon: <Code2 size={18} /> },
+    { name: "Top Developers", path: "/leaderboard", icon: <Code2 size={18} /> },
   ];
 
   return (
